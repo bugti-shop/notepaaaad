@@ -39,6 +39,7 @@ const CustomToolDetail = lazy(() => import("./pages/todo/CustomToolDetail"));
 const WeeklyReview = lazy(() => import("./pages/todo/WeeklyReview"));
 const WidgetsDashboard = lazy(() => import("./pages/todo/WidgetsDashboard"));
 const TaskHistory = lazy(() => import("./pages/todo/TaskHistory"));
+const Progress = lazy(() => import("./pages/todo/Progress"));
 const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -135,6 +136,7 @@ const AppRoutes = () => {
             <Route path="/todo/weekly-review" element={<WeeklyReview />} />
             <Route path="/todo/dashboard" element={<WidgetsDashboard />} />
             <Route path="/todo/history" element={<TaskHistory />} />
+            <Route path="/todo/progress" element={<Progress />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

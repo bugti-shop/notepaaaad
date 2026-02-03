@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { recordCompletion, TASK_STREAK_KEY } from '@/utils/streakStorage';
 import { useTranslation } from 'react-i18next';
 import { TodoItem, Folder, Priority, Note, TaskSection, TaskStatus } from '@/types/note';
 import { WaveformProgressBar } from '@/components/WaveformProgressBar';
@@ -472,6 +473,14 @@ const Today = () => {
       playCompletionSound();
       // Cancel auto-reminders when task is completed
       try { await notificationManager.cancelAutoReminders(itemId); } catch {}
+      // Record streak completion
+      try {
+        const streakResult = await recordCompletion(TASK_STREAK_KEY);
+        if (streakResult.newMilestone) {
+          toast.success(`🔥 ${streakResult.newMilestone} day streak! Keep it up!`);
+        }
+        window.dispatchEvent(new CustomEvent('streakUpdated'));
+      } catch (e) { console.warn('Failed to record streak:', e); }
     }
     
     // Clear completedAt if uncompleting a task

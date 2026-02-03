@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { recordCompletion, TASK_STREAK_KEY } from '@/utils/streakStorage';
 import { NotesCalendarView } from '@/components/NotesCalendarView';
 import { Plus, ListTodo, CalendarDays, Clock, MapPin, Repeat, Trash2, Edit, Filter, MousePointer2, Eye, EyeOff, MoreVertical, Copy, FolderInput, Flag, CheckCheck, X, GripVertical, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -389,6 +390,14 @@ const TodoCalendar = () => {
     // Play completion sound when completing a task
     if (updates.completed === true && currentItem && !currentItem.completed) {
       playCompletionSound();
+      // Record streak completion
+      try {
+        const streakResult = await recordCompletion(TASK_STREAK_KEY);
+        if (streakResult.newMilestone) {
+          toast.success(`🔥 ${streakResult.newMilestone} day streak! Keep it up!`);
+        }
+        window.dispatchEvent(new CustomEvent('streakUpdated'));
+      } catch (e) { console.warn('Failed to record streak:', e); }
     }
     
     // Check if this is a recurring task being completed
