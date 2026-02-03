@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { TodoLayout } from './TodoLayout';
 import { useStreak } from '@/hooks/useStreak';
 import { cn } from '@/lib/utils';
-import { Flame, Check, Snowflake, Trophy, Zap, TrendingUp, Calendar, Gift } from 'lucide-react';
+import { Flame, Check, Snowflake, Trophy, Zap, TrendingUp, Calendar, Gift, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { loadTodoItems } from '@/utils/todoItemsStorage';
 import { startOfWeek, endOfWeek } from 'date-fns';
@@ -12,10 +12,11 @@ import { XpLevelProgress } from '@/components/XpLevelProgress';
 import { AchievementBadges } from '@/components/AchievementBadges';
 import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { DailyChallenges } from '@/components/DailyChallenges';
+import { WeeklyGoals } from '@/components/WeeklyGoals';
 
 const Progress = () => {
   const { t } = useTranslation();
-  const { data, isLoading, completedToday, atRisk, status, weekData } = useStreak();
+  const { data, isLoading, completedToday, atRisk, status, weekData, gracePeriodRemaining } = useStreak();
   const [showConfetti, setShowConfetti] = useState(false);
   const [celebratingMilestone, setCelebratingMilestone] = useState<number | null>(null);
   const [weekStats, setWeekStats] = useState({ completed: 0, total: 0 });
@@ -79,6 +80,10 @@ const Progress = () => {
         return t('streak.firstDayComplete', "Great start! Let's keep going tomorrow.");
       }
       return t('streak.continueMessage', "I knew you'd come back! Let's do this again tomorrow.");
+    }
+    
+    if (status === 'grace_period') {
+      return t('streak.gracePeriodMessage', `You have ${gracePeriodRemaining} hours to save your streak!`);
     }
     
     if (status === 'lost' || status === 'new') {
@@ -244,8 +249,22 @@ const Progress = () => {
             ))}
           </div>
           
+          {/* Grace Period Indicator */}
+          {status === 'grace_period' && gracePeriodRemaining > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center justify-center gap-2 mt-6 pt-4 border-t bg-amber-500/10 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl"
+            >
+              <Clock className="h-5 w-5 text-amber-500" />
+              <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                {t('streak.gracePeriodActive', '{{hours}}h grace period remaining - complete a task to save your streak!', { hours: gracePeriodRemaining })}
+              </span>
+            </motion.div>
+          )}
+          
           {/* Streak Freezes */}
-          {data?.streakFreezes !== undefined && data.streakFreezes > 0 && (
+          {status !== 'grace_period' && data?.streakFreezes !== undefined && data.streakFreezes > 0 && (
             <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
               <Snowflake className="h-5 w-5 text-blue-400" />
               <span className="text-sm text-muted-foreground">
@@ -285,6 +304,9 @@ const Progress = () => {
             </div>
           )}
         </motion.div>
+        
+        {/* Weekly Goals */}
+        <WeeklyGoals />
         
         {/* Daily Challenges */}
         <DailyChallenges />

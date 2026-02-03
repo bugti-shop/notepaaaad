@@ -132,6 +132,14 @@ export const addXp = async (amount: number, reason?: string): Promise<{ data: Xp
   
   window.dispatchEvent(new CustomEvent('xpUpdated', { detail: { amount, total: data.totalXp } }));
   
+  // Update weekly XP goal
+  try {
+    const { updateGoalProgress } = await import('./weeklyGoalsStorage');
+    await updateGoalProgress('weekly_xp', amount);
+  } catch (e) {
+    // Weekly goals may not be loaded yet
+  }
+  
   return { data, leveledUp, newLevel: leveledUp ? level : null };
 };
 
