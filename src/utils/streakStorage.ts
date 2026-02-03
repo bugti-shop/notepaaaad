@@ -3,12 +3,13 @@
 // Can be reused for habits, notes, routines etc.
 
 import { getSetting, setSetting } from './settingsStorage';
-import { startOfDay, differenceInDays, format, subDays } from 'date-fns';
+import { startOfDay, differenceInDays, differenceInHours, format, subDays } from 'date-fns';
 
 export interface StreakData {
   currentStreak: number;
   longestStreak: number;
   lastCompletionDate: string | null; // ISO date string (YYYY-MM-DD)
+  lastCompletionTime: string | null; // ISO timestamp for grace period calculation
   streakFreezes: number;
   totalCompletions: number;
   milestones: number[]; // Milestones achieved (3, 7, 14, 30, etc.)
@@ -16,6 +17,7 @@ export interface StreakData {
   dailyTaskCount: number; // Tasks completed today
   lastTaskCountDate: string | null; // Date of dailyTaskCount
   freezesEarnedToday: boolean; // Whether freeze was already earned today
+  gracePeriodUsed: boolean; // Whether 24-hour grace period was used
 }
 
 export interface StreakConfig {
@@ -25,11 +27,13 @@ export interface StreakConfig {
 
 const DEFAULT_MILESTONES = [3, 7, 14, 30, 60, 100, 365];
 const TASKS_FOR_FREEZE = 5; // Complete 5 tasks in a day to earn a freeze
+const GRACE_PERIOD_HOURS = 24; // 24-hour grace period
 
 const getDefaultStreakData = (): StreakData => ({
   currentStreak: 0,
   longestStreak: 0,
   lastCompletionDate: null,
+  lastCompletionTime: null,
   streakFreezes: 0,
   totalCompletions: 0,
   milestones: [],
@@ -37,6 +41,7 @@ const getDefaultStreakData = (): StreakData => ({
   dailyTaskCount: 0,
   lastTaskCountDate: null,
   freezesEarnedToday: false,
+  gracePeriodUsed: false,
 });
 
 // Get today's date string in local time (YYYY-MM-DD)
@@ -52,6 +57,9 @@ export const getDateString = (date: Date): string => {
 // Load streak data from storage
 export const loadStreakData = async (storageKey: string): Promise<StreakData> => {
   const data = await getSetting<StreakData>(storageKey, getDefaultStreakData());
+  // Ensure new fields exist for backward compatibility
+  if (data.lastCompletionTime === undefined) data.lastCompletionTime = null;
+  if (data.gracePeriodUsed === undefined) data.gracePeriodUsed = false;
   return data;
 };
 
@@ -66,10 +74,32 @@ export const isCompletedToday = (data: StreakData): boolean => {
   return data.lastCompletionDate === getTodayDateString();
 };
 
+// Check if within 24-hour grace period
+export const isWithinGracePeriod = (data: StreakData): boolean => {
+  if (!data.lastCompletionTime) return false;
+  const lastTime = new Date(data.lastCompletionTime);
+  const hoursSince = differenceInHours(new Date(), lastTime);
+  return hoursSince < GRACE_PERIOD_HOURS;
+};
+
+// Get remaining grace period hours
+export const getGracePeriodRemaining = (data: StreakData): number => {
+  if (!data.lastCompletionTime) return 0;
+  const lastTime = new Date(data.lastCompletionTime);
+  const hoursSince = differenceInHours(new Date(), lastTime);
+  return Math.max(0, GRACE_PERIOD_HOURS - hoursSince);
+};
+
 // Check if streak is at risk (day about to end without completion)
 export const isStreakAtRisk = (data: StreakData): boolean => {
   if (isCompletedToday(data)) return false;
   if (data.currentStreak === 0) return false;
+  
+  // Check grace period first
+  if (isWithinGracePeriod(data)) {
+    const remaining = getGracePeriodRemaining(data);
+    return remaining <= 6; // Show warning in last 6 hours of grace period
+  }
   
   const now = new Date();
   const hours = now.getHours();
@@ -78,7 +108,7 @@ export const isStreakAtRisk = (data: StreakData): boolean => {
 };
 
 // Check if streak was lost (missed a day)
-export const checkStreakStatus = (data: StreakData): 'active' | 'at_risk' | 'lost' | 'new' => {
+export const checkStreakStatus = (data: StreakData): 'active' | 'at_risk' | 'lost' | 'new' | 'grace_period' => {
   const today = getTodayDateString();
   const yesterday = getDateString(subDays(new Date(), 1));
   
@@ -94,7 +124,12 @@ export const checkStreakStatus = (data: StreakData): 'active' | 'at_risk' | 'los
     return isStreakAtRisk(data) ? 'at_risk' : 'active';
   }
   
-  // Missed more than one day
+  // Check 24-hour grace period
+  if (isWithinGracePeriod(data) && data.currentStreak > 0) {
+    return 'grace_period';
+  }
+  
+  // Missed more than one day and outside grace period
   return 'lost';
 };
 
@@ -108,6 +143,7 @@ export const recordCompletion = async (
   newMilestone: number | null;
   usedFreeze: boolean;
   earnedFreeze: boolean;
+  usedGracePeriod: boolean;
 }> => {
   const data = await loadStreakData(storageKey);
   const today = getTodayDateString();
@@ -138,29 +174,39 @@ export const recordCompletion = async (
   // Already completed today for streak purposes - return early but with updated task count
   if (data.lastCompletionDate === today) {
     await saveStreakData(storageKey, data);
-    return { data, streakIncremented: false, newMilestone: null, usedFreeze: false, earnedFreeze };
+    return { data, streakIncremented: false, newMilestone: null, usedFreeze: false, earnedFreeze, usedGracePeriod: false };
   }
   
   // Update total completions
   data.totalCompletions += 1;
+  
+  let usedGracePeriod = false;
   
   // Check if this extends the streak or starts a new one
   if (data.lastCompletionDate === yesterday) {
     // Continuing streak from yesterday
     data.currentStreak += 1;
     streakIncremented = true;
+    data.gracePeriodUsed = false; // Reset grace period for new day
   } else if (data.lastCompletionDate === null) {
     // First ever completion
     data.currentStreak = 1;
     streakIncremented = true;
   } else {
-    // Missed a day - check for streak freeze
+    // Missed a day - check grace period first, then freeze
+    const withinGrace = isWithinGracePeriod(data);
     const daysMissed = differenceInDays(
       startOfDay(new Date()),
       startOfDay(new Date(data.lastCompletionDate))
     );
     
-    if (daysMissed === 2 && data.streakFreezes > 0) {
+    if (withinGrace && !data.gracePeriodUsed && data.currentStreak > 0) {
+      // Within 24-hour grace period - save the streak!
+      data.currentStreak += 1;
+      data.gracePeriodUsed = true;
+      usedGracePeriod = true;
+      streakIncremented = true;
+    } else if (daysMissed === 2 && data.streakFreezes > 0) {
       // Can use a freeze (missed exactly one day)
       data.streakFreezes -= 1;
       data.currentStreak += 1;
@@ -169,6 +215,7 @@ export const recordCompletion = async (
     } else {
       // Streak is broken - start fresh
       data.currentStreak = 1;
+      data.gracePeriodUsed = false;
       streakIncremented = true;
     }
   }
@@ -187,8 +234,9 @@ export const recordCompletion = async (
     }
   }
   
-  // Update last completion date
+  // Update last completion date and time
   data.lastCompletionDate = today;
+  data.lastCompletionTime = new Date().toISOString();
   
   // Update week history
   data.weekHistory[today] = true;
@@ -206,7 +254,7 @@ export const recordCompletion = async (
   // Save updated data
   await saveStreakData(storageKey, data);
   
-  return { data, streakIncremented, newMilestone, usedFreeze, earnedFreeze };
+  return { data, streakIncremented, newMilestone, usedFreeze, earnedFreeze, usedGracePeriod };
 };
 
 // Add streak freezes (can be earned or purchased)

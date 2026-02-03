@@ -13,6 +13,7 @@ import {
   getWeekData,
   addStreakFreeze,
   TASK_STREAK_KEY,
+  getGracePeriodRemaining,
 } from '@/utils/streakStorage';
 import { triggerNotificationHaptic, triggerHaptic } from '@/utils/haptics';
 import {
@@ -21,6 +22,7 @@ import {
   checkAndUnlockAchievements,
   updateChallengeProgress,
 } from '@/utils/gamificationStorage';
+import { updateGoalProgress } from '@/utils/weeklyGoalsStorage';
 
 interface UseStreakOptions {
   storageKey?: string;
@@ -32,11 +34,12 @@ interface UseStreakReturn {
   isLoading: boolean;
   completedToday: boolean;
   atRisk: boolean;
-  status: 'active' | 'at_risk' | 'lost' | 'new';
+  status: 'active' | 'at_risk' | 'lost' | 'new' | 'grace_period';
   weekData: Array<{ day: string; date: string; completed: boolean; isToday: boolean }>;
-  recordTaskCompletion: () => Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean }>;
+  recordTaskCompletion: () => Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean; usedGracePeriod: boolean }>;
   addFreeze: (count?: number) => Promise<void>;
   refresh: () => Promise<void>;
+  gracePeriodRemaining: number;
 }
 
 export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
@@ -74,7 +77,7 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
   }, [loadStreak]);
 
   // Record a task completion
-  const recordTaskCompletion = useCallback(async (): Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean }> => {
+  const recordTaskCompletion = useCallback(async (): Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean; usedGracePeriod: boolean }> => {
     const result = await recordCompletion(storageKey);
     setData(result.data);
     
@@ -121,19 +124,30 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
       completionHour: hour,
     });
     
+    // Update weekly goals
+    await updateGoalProgress('weekly_tasks', 1);
+    if (result.streakIncremented) {
+      await updateGoalProgress('weekly_streak', 1);
+    }
+    
     // Dispatch event for other components
     window.dispatchEvent(new CustomEvent('streakUpdated'));
     
-    // Haptic feedback for milestone or earned freeze
+    // Haptic feedback for milestone, earned freeze, or grace period save
     if (result.newMilestone) {
       triggerNotificationHaptic('success');
-    } else if (result.earnedFreeze) {
+    } else if (result.earnedFreeze || result.usedGracePeriod) {
       triggerNotificationHaptic('success');
     } else if (result.streakIncremented) {
       triggerHaptic('light');
     }
     
-    return { newMilestone: result.newMilestone, usedFreeze: result.usedFreeze, earnedFreeze: result.earnedFreeze };
+    return { 
+      newMilestone: result.newMilestone, 
+      usedFreeze: result.usedFreeze, 
+      earnedFreeze: result.earnedFreeze,
+      usedGracePeriod: result.usedGracePeriod
+    };
   }, [storageKey]);
 
   // Add streak freeze
@@ -154,6 +168,7 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
   const atRisk = data ? isStreakAtRisk(data) : false;
   const status = data ? checkStreakStatus(data) : 'new';
   const weekData = data ? getWeekData(data) : [];
+  const gracePeriodRemaining = data ? getGracePeriodRemaining(data) : 0;
 
   return {
     data,
@@ -165,5 +180,6 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
     recordTaskCompletion,
     addFreeze,
     refresh,
+    gracePeriodRemaining,
   };
 };
