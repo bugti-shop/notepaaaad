@@ -1834,7 +1834,7 @@ const Today = () => {
               </div>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              <button onClick={() => setSelectedFolderId(null)} className={cn("flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap", !selectedFolderId ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-muted border-border")}>
+              <button onClick={() => setSelectedFolderId(null)} className={cn("flex items-center gap-2 px-4 py-2 rounded-full transition-all whitespace-nowrap", !selectedFolderId ? "bg-primary text-primary-foreground" : "bg-card hover:bg-muted")}>
                 <FolderIcon className="h-4 w-4" />{t('smartLists.allTasks')}
               </button>
               {folders.map((folder) => {
@@ -1844,15 +1844,14 @@ const Today = () => {
                     key={folder.id} 
                     onClick={() => setSelectedFolderId(folder.id)} 
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap",
+                      "flex items-center gap-2 px-4 py-2 rounded-full transition-all whitespace-nowrap",
                       isSelected 
                         ? "text-primary-foreground" 
-                        : "hover:opacity-80 text-foreground border-border",
+                        : "hover:opacity-80 text-foreground",
                       !isSelected && "bg-[#f1f4f9] dark:bg-muted"
                     )}
                     style={isSelected ? { 
-                      backgroundColor: folder.color, 
-                      borderColor: folder.color 
+                      backgroundColor: folder.color
                     } : undefined}
                   >
                     <FolderIcon className="h-4 w-4" />
