@@ -395,6 +395,10 @@ const TodoCalendar = () => {
         const streakResult = await recordCompletion(TASK_STREAK_KEY);
         if (streakResult.newMilestone) {
           toast.success(`🔥 ${streakResult.newMilestone} day streak! Keep it up!`);
+          window.dispatchEvent(new CustomEvent('streakMilestone', { detail: { milestone: streakResult.newMilestone } }));
+        }
+        if (streakResult.earnedFreeze) {
+          toast.success('❄️ You earned a streak freeze!', { description: 'Complete 5 tasks in a day to earn more.' });
         }
         window.dispatchEvent(new CustomEvent('streakUpdated'));
       } catch (e) { console.warn('Failed to record streak:', e); }

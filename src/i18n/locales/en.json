@@ -105,7 +105,10 @@
     "newStreakMessage": "New streaks start today. Complete one task to begin!",
     "atRiskMessage": "Complete one task today to keep your streak going!",
     "keepGoingMessage": "You're on a roll! Keep it up.",
-    "atRiskWarning": "Complete one task today to keep your streak going!"
+    "atRiskWarning": "Complete one task today to keep your streak going!",
+    "earnFreeze": "Complete {{remaining}} more tasks today to earn a freeze",
+    "freezeEarnedToday": "Freeze earned today! 🎉",
+    "milestoneReached": "Milestone reached!"
   },
   "profile": {
     "title": "Profile",

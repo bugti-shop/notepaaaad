@@ -3,17 +3,44 @@ import { useTranslation } from 'react-i18next';
 import { TodoLayout } from './TodoLayout';
 import { useStreak } from '@/hooks/useStreak';
 import { cn } from '@/lib/utils';
-import { Flame, Check, Snowflake, Trophy, Zap, TrendingUp, Calendar } from 'lucide-react';
+import { Flame, Check, Snowflake, Trophy, Zap, TrendingUp, Calendar, Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { loadTodoItems } from '@/utils/todoItemsStorage';
 import { isToday, isThisWeek, startOfWeek, endOfWeek, format } from 'date-fns';
+import Confetti from 'react-confetti';
 
 const Progress = () => {
   const { t } = useTranslation();
   const { data, isLoading, completedToday, atRisk, status, weekData, refresh } = useStreak();
-  const [showMilestoneAnimation, setShowMilestoneAnimation] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [celebratingMilestone, setCelebratingMilestone] = useState<number | null>(null);
   const [weekStats, setWeekStats] = useState({ completed: 0, total: 0 });
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // Handle window resize for confetti
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Listen for milestone celebrations
+  useEffect(() => {
+    const handleMilestone = (e: CustomEvent<{ milestone: number }>) => {
+      setCelebratingMilestone(e.detail.milestone);
+      setShowConfetti(true);
+      setTimeout(() => {
+        setShowConfetti(false);
+        setCelebratingMilestone(null);
+      }, 4000);
+    };
+    
+    window.addEventListener('streakMilestone', handleMilestone as EventListener);
+    return () => window.removeEventListener('streakMilestone', handleMilestone as EventListener);
+  }, []);
 
   // Load weekly stats
   useEffect(() => {
@@ -80,8 +107,52 @@ const Progress = () => {
     );
   }
 
+  // Calculate freeze progress
+  const TASKS_FOR_FREEZE = 5;
+  const dailyTaskCount = data?.dailyTaskCount || 0;
+  const freezeProgress = Math.min(dailyTaskCount, TASKS_FOR_FREEZE);
+  const freezeProgressPercent = (freezeProgress / TASKS_FOR_FREEZE) * 100;
+
   return (
     <TodoLayout title={t('nav.progress', 'Progress')}>
+      {/* Confetti for milestones */}
+      {showConfetti && (
+        <Confetti
+          width={windowSize.width}
+          height={windowSize.height}
+          recycle={false}
+          numberOfPieces={200}
+          gravity={0.3}
+        />
+      )}
+      
+      {/* Milestone celebration overlay */}
+      <AnimatePresence>
+        {celebratingMilestone && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ y: 50 }}
+              animate={{ y: 0 }}
+              className="text-center"
+            >
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -10, 0] }}
+                transition={{ duration: 0.5, repeat: 2 }}
+              >
+                <Flame className="h-24 w-24 text-orange-500 fill-orange-400 mx-auto" />
+              </motion.div>
+              <h2 className="text-4xl font-bold mt-4 text-foreground">{celebratingMilestone} {t('streak.days', 'days')}!</h2>
+              <p className="text-muted-foreground mt-2">{t('streak.milestoneReached', 'Milestone reached!')}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="container mx-auto px-4 py-6 space-y-6">
         
         {/* Streak Card */}
@@ -173,6 +244,37 @@ const Progress = () => {
               <Snowflake className="h-5 w-5 text-blue-400" />
               <span className="text-sm text-muted-foreground">
                 {data.streakFreezes} {t('streak.freezesAvailable', 'streak freeze(s) available')}
+              </span>
+            </div>
+          )}
+          
+          {/* Freeze Progress - Show progress towards earning a freeze */}
+          {!data?.freezesEarnedToday && (
+            <div className="mt-6 pt-4 border-t">
+              <div className="flex items-center gap-2 mb-2">
+                <Gift className="h-4 w-4 text-blue-400" />
+                <span className="text-sm text-muted-foreground">
+                  {t('streak.earnFreeze', 'Complete {{remaining}} more tasks today to earn a freeze', { remaining: TASKS_FOR_FREEZE - freezeProgress })}
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${freezeProgressPercent}%` }}
+                  className="bg-blue-400 h-2 rounded-full"
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-muted-foreground">{freezeProgress}/{TASKS_FOR_FREEZE}</span>
+              </div>
+            </div>
+          )}
+          
+          {data?.freezesEarnedToday && (
+            <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+              <Gift className="h-5 w-5 text-green-500" />
+              <span className="text-sm text-green-600 dark:text-green-400">
+                {t('streak.freezeEarnedToday', 'Freeze earned today! 🎉')}
               </span>
             </div>
           )}
