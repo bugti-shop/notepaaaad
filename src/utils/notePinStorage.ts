@@ -1,15 +1,26 @@
 // PIN lock storage for individual notes
 // Uses SHA-256 hashing similar to app lock
 // Supports biometric authentication per note
+// Supports master PIN for all locked notes
 
 import { getSetting, setSetting, removeSetting } from './settingsStorage';
 
 // Storage keys
 const getNotePinKey = (noteId: string) => `npd_note_pin_${noteId}`;
 const getNoteBiometricKey = (noteId: string) => `npd_note_biometric_${noteId}`;
+const MASTER_PIN_KEY = 'npd_master_note_pin';
+const MASTER_PIN_BIOMETRIC_KEY = 'npd_master_note_biometric';
+const MASTER_PIN_ENABLED_KEY = 'npd_master_note_pin_enabled';
 
 // Interface for note PIN settings
 export interface NotePinSettings {
+  pinHash: string | null;
+  biometricEnabled: boolean;
+}
+
+// Interface for master PIN settings
+export interface MasterPinSettings {
+  enabled: boolean;
   pinHash: string | null;
   biometricEnabled: boolean;
 }
@@ -101,4 +112,71 @@ export const getNotesWithSamePin = async (
     }
   }
   return matches;
+};
+
+// ==================== MASTER PIN FUNCTIONS ====================
+
+// Get master PIN settings
+export const getMasterPinSettings = async (): Promise<MasterPinSettings> => {
+  const [enabled, pinHash, biometricEnabled] = await Promise.all([
+    getSetting<boolean>(MASTER_PIN_ENABLED_KEY, false),
+    getSetting<string | null>(MASTER_PIN_KEY, null),
+    getSetting<boolean>(MASTER_PIN_BIOMETRIC_KEY, false),
+  ]);
+  return { enabled, pinHash, biometricEnabled };
+};
+
+// Check if master PIN is enabled
+export const isMasterPinEnabled = async (): Promise<boolean> => {
+  return getSetting<boolean>(MASTER_PIN_ENABLED_KEY, false);
+};
+
+// Get master PIN hash
+export const getMasterPinHash = async (): Promise<string | null> => {
+  return getSetting<string | null>(MASTER_PIN_KEY, null);
+};
+
+// Set master PIN
+export const setMasterPin = async (pin: string): Promise<void> => {
+  const pinHash = await hashNotePin(pin);
+  await Promise.all([
+    setSetting(MASTER_PIN_KEY, pinHash),
+    setSetting(MASTER_PIN_ENABLED_KEY, true),
+  ]);
+};
+
+// Enable/disable master PIN biometric
+export const setMasterPinBiometric = async (enabled: boolean): Promise<void> => {
+  await setSetting(MASTER_PIN_BIOMETRIC_KEY, enabled);
+};
+
+// Remove master PIN
+export const removeMasterPin = async (): Promise<void> => {
+  await Promise.all([
+    removeSetting(MASTER_PIN_KEY),
+    removeSetting(MASTER_PIN_BIOMETRIC_KEY),
+    setSetting(MASTER_PIN_ENABLED_KEY, false),
+  ]);
+};
+
+// Verify master PIN
+export const verifyMasterPin = async (pin: string): Promise<boolean> => {
+  const storedHash = await getMasterPinHash();
+  if (!storedHash) return false;
+  return verifyNotePin(pin, storedHash);
+};
+
+// Check if a PIN can unlock a note (either note's own PIN or master PIN)
+export const canUnlockNote = async (noteId: string, pin: string): Promise<boolean> => {
+  // First check if it's the note's own PIN
+  const noteValid = await verifyNotePinForNote(noteId, pin);
+  if (noteValid) return true;
+  
+  // Then check if master PIN is enabled and matches
+  const masterEnabled = await isMasterPinEnabled();
+  if (masterEnabled) {
+    return verifyMasterPin(pin);
+  }
+  
+  return false;
 };

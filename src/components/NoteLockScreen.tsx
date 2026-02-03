@@ -6,9 +6,11 @@ import { Lock, Fingerprint, KeyRound, AlertCircle, ArrowLeft, Trash2 } from 'luc
 import { toast } from 'sonner';
 import {
   getNotePinSettings,
-  verifyNotePinForNote,
+  canUnlockNote,
   removeNotePin,
+  getMasterPinSettings,
   NotePinSettings,
+  MasterPinSettings,
 } from '@/utils/notePinStorage';
 import { triggerHaptic, triggerNotificationHaptic } from '@/utils/haptics';
 import { Capacitor } from '@capacitor/core';
@@ -44,6 +46,7 @@ export const NoteLockScreen = ({
   const [isLocked, setIsLocked] = useState(false);
   const [lockCountdown, setLockCountdown] = useState(0);
   const [settings, setSettings] = useState<NotePinSettings | null>(null);
+  const [masterSettings, setMasterSettings] = useState<MasterPinSettings | null>(null);
   const [pinError, setPinError] = useState('');
   const [showForgotDialog, setShowForgotDialog] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -64,11 +67,18 @@ export const NoteLockScreen = ({
   }, [lockCountdown, isLocked]);
 
   const loadSettings = async () => {
-    const s = await getNotePinSettings(noteId);
-    setSettings(s);
+    const [noteSettings, masterPinSettings] = await Promise.all([
+      getNotePinSettings(noteId),
+      getMasterPinSettings(),
+    ]);
+    setSettings(noteSettings);
+    setMasterSettings(masterPinSettings);
     
-    // Try biometric first if enabled
-    if (s.biometricEnabled && Capacitor.isNativePlatform()) {
+    // Try biometric first if enabled (either note or master)
+    const canUseBiometric = noteSettings.biometricEnabled || 
+      (masterPinSettings.enabled && masterPinSettings.biometricEnabled);
+    
+    if (canUseBiometric && Capacitor.isNativePlatform()) {
       attemptBiometric();
     }
   };
@@ -107,8 +117,9 @@ export const NoteLockScreen = ({
     setPin(numericValue);
     setPinError('');
 
-    if (numericValue.length === 4 && settings?.pinHash) {
-      const isValid = await verifyNotePinForNote(noteId, numericValue);
+    if (numericValue.length === 4) {
+      // Use canUnlockNote which checks both note PIN and master PIN
+      const isValid = await canUnlockNote(noteId, numericValue);
       
       if (isValid) {
         triggerNotificationHaptic('success');
@@ -140,6 +151,10 @@ export const NoteLockScreen = ({
     onPinRemoved?.();
     onUnlock();
   };
+
+  // Check if biometric is available for unlocking
+  const canUseBiometric = settings?.biometricEnabled || 
+    (masterSettings?.enabled && masterSettings?.biometricEnabled);
 
   // Render PIN dots
   const renderPinDots = () => (
@@ -239,12 +254,18 @@ export const NoteLockScreen = ({
         </div>
         
         <h1 className="text-2xl font-bold mb-2">{t('notePin.enterPin', 'Enter PIN')}</h1>
-        <p className="text-muted-foreground mb-4 text-center max-w-[280px]">
+        <p className="text-muted-foreground mb-2 text-center max-w-[280px]">
           {noteTitle 
             ? t('notePin.enterPinForNote', 'Enter PIN to unlock "{{title}}"', { title: noteTitle })
             : t('notePin.enterPinToUnlock', 'Enter your PIN to unlock the note')
           }
         </p>
+        
+        {masterSettings?.enabled && (
+          <p className="text-xs text-muted-foreground/70 mb-4">
+            {t('notePin.masterPinHint', 'You can also use your Master PIN')}
+          </p>
+        )}
         
         {renderPinDots()}
         
@@ -267,7 +288,7 @@ export const NoteLockScreen = ({
         {renderNumberPad()}
         
         <div className="flex gap-4 mt-8">
-          {settings.biometricEnabled && Capacitor.isNativePlatform() && (
+          {canUseBiometric && Capacitor.isNativePlatform() && (
             <Button variant="ghost" onClick={attemptBiometric} className="gap-2">
               <Fingerprint className="h-5 w-5" />
               {t('notePin.useFingerprint', 'Use Fingerprint')}

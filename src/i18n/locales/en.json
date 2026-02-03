@@ -183,7 +183,12 @@
     "chooseTheme": "Choose Theme",
     "themeChanged": "Theme changed to {{theme}}",
     "hapticSet": "Haptic feedback set to {{intensity}}",
-    "languageChanged": "Language changed to {{language}}"
+    "languageChanged": "Language changed to {{language}}",
+    "security": "Security",
+    "appLock": "App Lock",
+    "masterNotePin": "Master Note PIN",
+    "taskSettings": "Task Settings",
+    "taskPreferences": "Task Preferences"
   },
   "dialogs": {
     "deleteTitle": "Delete All Data?",
@@ -803,7 +808,36 @@
     "forgotPinDescription": "You can remove the PIN lock from this note. This will make the note accessible without a PIN.",
     "confirmRemoveTitle": "Remove PIN Lock?",
     "confirmRemoveDescription": "Are you sure you want to remove the PIN? Anyone with access to your device will be able to open this note.",
-    "yesRemovePin": "Yes, Remove PIN"
+    "yesRemovePin": "Yes, Remove PIN",
+    "biometricEnabled": "Biometric unlock enabled",
+    "biometricDisabled": "Biometric unlock disabled",
+    "biometricUnlock": "Biometric Unlock",
+    "biometricDesc": "Use fingerprint or Face ID to unlock",
+    "masterPinHint": "You can also use your Master PIN"
+  },
+  "masterPin": {
+    "setPin": "Set Master PIN",
+    "confirmPin": "Confirm Master PIN",
+    "enterCurrentPin": "Enter Current Master PIN",
+    "enterNewPin": "Enter New Master PIN",
+    "confirmNewPin": "Confirm New Master PIN",
+    "enter4Digits": "Set a 4-digit Master PIN that can unlock all locked notes",
+    "reenterPin": "Re-enter the Master PIN to confirm",
+    "verifyToChange": "Enter your current Master PIN to make changes",
+    "pinSet": "Master PIN set successfully",
+    "pinRemoved": "Master PIN removed",
+    "pinMismatch": "PINs do not match",
+    "incorrectPin": "Incorrect Master PIN",
+    "removePin": "Remove Master PIN",
+    "whatIsMasterPin": "What is a Master PIN?",
+    "masterPinDesc": "A Master PIN can unlock any locked note. Use it as a backup if you forget individual note PINs.",
+    "confirmRemoveTitle": "Remove Master PIN?",
+    "confirmRemoveDesc": "You will no longer be able to use a single PIN to unlock all locked notes. Individual note PINs will still work.",
+    "yesRemove": "Yes, Remove",
+    "biometricEnabled": "Biometric unlock enabled for Master PIN",
+    "biometricDisabled": "Biometric unlock disabled for Master PIN",
+    "biometricUnlock": "Biometric Unlock",
+    "biometricDesc": "Use fingerprint or Face ID with Master PIN"
   },
   "dateTime": {
     "date": "Date",
