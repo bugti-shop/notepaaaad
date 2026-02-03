@@ -10,10 +10,8 @@ import { startOfWeek, endOfWeek } from 'date-fns';
 import Confetti from 'react-confetti';
 import { XpLevelProgress } from '@/components/XpLevelProgress';
 import { AchievementBadges } from '@/components/AchievementBadges';
-import { ActivityHeatmap } from '@/components/ActivityHeatmap';
 import { DailyChallenges } from '@/components/DailyChallenges';
 import { WeeklyGoals } from '@/components/WeeklyGoals';
-
 const Progress = () => {
   const { t } = useTranslation();
   const { data, isLoading, completedToday, atRisk, status, weekData, gracePeriodRemaining } = useStreak();
@@ -369,8 +367,6 @@ const Progress = () => {
         {/* Achievement Badges */}
         <AchievementBadges compact />
         
-        {/* Activity Heatmap */}
-        <ActivityHeatmap />
         
         {/* Full Achievements */}
         <AchievementBadges />
