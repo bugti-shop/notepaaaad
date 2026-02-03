@@ -16,15 +16,7 @@ export interface WidgetConfig {
 }
 
 export type WidgetType = 
-  | 'task_list' 
-  | 'task_input' 
   | 'section_tasks' 
-  | 'note_regular' 
-  | 'note_sticky' 
-  | 'note_lined' 
-  | 'note_code' 
-  | 'note_sketch'
-  | 'notes_dropdown'
   | 'specific_note';
 
 // Widget data structures for native widgets
@@ -347,14 +339,6 @@ export const widgetDataSync = WidgetDataSyncManager.getInstance();
  * Available widget types for settings UI
  */
 export const WIDGET_TYPES: { type: WidgetType; label: string; icon: string; description: string }[] = [
-  { type: 'task_list', label: 'Tasks Widget', icon: '✅', description: 'Shows your upcoming tasks' },
-  { type: 'task_input', label: 'Quick Add Task', icon: '➕', description: 'Add tasks directly from widget' },
-  { type: 'section_tasks', label: 'Section Tasks', icon: '📋', description: 'Tasks from a specific section' },
-  { type: 'note_regular', label: 'Regular Note', icon: '⬜', description: 'Quick access to regular notes' },
-  { type: 'note_sticky', label: 'Sticky Note', icon: '📕', description: 'Quick access to sticky notes' },
-  { type: 'note_lined', label: 'Lined Note', icon: '📄', description: 'Quick access to lined notes' },
-  { type: 'note_code', label: 'Code Note', icon: '💻', description: 'Quick access to code notes' },
-  { type: 'note_sketch', label: 'Sketch Note', icon: '🎨', description: 'Quick access to sketch notes' },
-  { type: 'notes_dropdown', label: 'Notes Dropdown', icon: '📝', description: 'Dropdown to select any note' },
-  { type: 'specific_note', label: 'Specific Note', icon: '📌', description: 'Pin a specific note to widget' },
+  { type: 'specific_note', label: 'Notes Widget', icon: '📝', description: 'Display any note you created on home screen' },
+  { type: 'section_tasks', label: 'Section Tasks', icon: '📋', description: 'Show all tasks from a section with checkboxes' },
 ];

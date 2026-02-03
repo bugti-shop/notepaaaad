@@ -199,109 +199,16 @@ export const WidgetSettingsSheet = ({ isOpen, onClose }: WidgetSettingsSheetProp
 
             <Separator />
 
-            {/* Task Widgets */}
+            {/* Notes Widget */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">Task Widgets</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">Notes Widget</h3>
               
-              {WIDGET_TYPES.filter(w => w.type.includes('task')).map((widget) => (
-                <div 
-                  key={widget.type}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{widget.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{widget.label}</p>
-                      <p className="text-xs text-muted-foreground">{widget.description}</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={isWidgetEnabled(widget.type)}
-                    onCheckedChange={(checked) => handleToggleWidget(widget.type, checked)}
-                  />
-                </div>
-              ))}
-
-              {/* Section Selection */}
-              {isWidgetEnabled('section_tasks') && sections.length > 0 && (
-                <div className="ml-4 p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs font-medium mb-2">Select Section:</p>
-                  <Select value={selectedSectionId} onValueChange={handleSelectSection}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a section" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sections.map((section) => (
-                        <SelectItem key={section.id} value={section.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: section.color }} 
-                            />
-                            {section.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Note Type Widgets */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">Note Type Widgets</h3>
-              
-              {WIDGET_TYPES.filter(w => w.type.startsWith('note_') && w.type !== 'notes_dropdown').map((widget) => (
-                <div 
-                  key={widget.type}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{widget.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{widget.label}</p>
-                      <p className="text-xs text-muted-foreground">{widget.description}</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={isWidgetEnabled(widget.type)}
-                    onCheckedChange={(checked) => handleToggleWidget(widget.type, checked)}
-                  />
-                </div>
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* Other Widgets */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">Other Widgets</h3>
-              
-              {/* Notes Dropdown */}
               <div className="flex items-center justify-between p-3 rounded-lg border border-border">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📝</span>
                   <div>
-                    <p className="text-sm font-medium">Notes Dropdown</p>
-                    <p className="text-xs text-muted-foreground">Dropdown to select any note</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={isWidgetEnabled('notes_dropdown')}
-                  onCheckedChange={(checked) => handleToggleWidget('notes_dropdown', checked)}
-                />
-              </div>
-
-              {/* Specific Note Widget */}
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">📌</span>
-                  <div>
-                    <p className="text-sm font-medium">Pin Specific Note</p>
-                    <p className="text-xs text-muted-foreground">Pin a specific note to widget</p>
+                    <p className="text-sm font-medium">Notes Widget</p>
+                    <p className="text-xs text-muted-foreground">Display any note you created on home screen</p>
                   </div>
                 </div>
                 <Switch
@@ -313,7 +220,7 @@ export const WidgetSettingsSheet = ({ isOpen, onClose }: WidgetSettingsSheetProp
               {/* Note Selection */}
               {isWidgetEnabled('specific_note') && notes.length > 0 && (
                 <div className="ml-4 p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs font-medium mb-2">Select Note to Pin:</p>
+                  <p className="text-xs font-medium mb-2">Select Note to Display:</p>
                   <Select value={selectedNoteId} onValueChange={handleSelectNote}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a note" />
@@ -333,6 +240,52 @@ export const WidgetSettingsSheet = ({ isOpen, onClose }: WidgetSettingsSheetProp
                             <span className="truncate max-w-[200px]">
                               {note.title || 'Untitled'}
                             </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Section Tasks Widget */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">Section Tasks Widget</h3>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📋</span>
+                  <div>
+                    <p className="text-sm font-medium">Section Tasks</p>
+                    <p className="text-xs text-muted-foreground">Show all tasks from a section with checkboxes</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={isWidgetEnabled('section_tasks')}
+                  onCheckedChange={(checked) => handleToggleWidget('section_tasks', checked)}
+                />
+              </div>
+
+              {/* Section Selection */}
+              {isWidgetEnabled('section_tasks') && sections.length > 0 && (
+                <div className="ml-4 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs font-medium mb-2">Select Section:</p>
+                  <Select value={selectedSectionId} onValueChange={handleSelectSection}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: section.color }} 
+                            />
+                            {section.name}
                           </div>
                         </SelectItem>
                       ))}
