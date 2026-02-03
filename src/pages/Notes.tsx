@@ -3,7 +3,7 @@ import { BottomNavigation } from '@/components/BottomNavigation';
 import { Note } from '@/types/note';
 import { NoteEditor } from '@/components/NoteEditor';
 import { Layers, Settings, Pin, Download, ListTodo, FileText, Archive, ArchiveRestore, Trash2, RotateCcw, Sun, Moon, Search, X, KeyRound } from 'lucide-react';
-import { NotePinUnlockSheet } from '@/components/NotePinUnlockSheet';
+import { NoteLockScreen } from '@/components/NoteLockScreen';
 import { hasNotePin } from '@/utils/notePinStorage';
 import { debouncedSaveNotes, saveNoteToDBSingle, saveNotesToDB, deleteNoteFromDB } from '@/utils/noteStorage';
 import { Button } from '@/components/ui/button';
@@ -112,6 +112,7 @@ const Notes = () => {
       setSelectedNote(pendingUnlockNote);
       setIsEditorOpen(true);
       setPendingUnlockNote(null);
+      setIsPinUnlockOpen(false);
     }
   };
 
@@ -607,17 +608,18 @@ const Notes = () => {
         returnTo="/notes"
       />
 
-      {/* PIN Unlock Sheet */}
-      <NotePinUnlockSheet
-        isOpen={isPinUnlockOpen}
-        onClose={() => {
-          setIsPinUnlockOpen(false);
-          setPendingUnlockNote(null);
-        }}
-        noteId={pendingUnlockNote?.id || ''}
-        noteTitle={pendingUnlockNote?.title}
-        onUnlocked={handlePinUnlocked}
-      />
+      {/* Full Screen PIN Unlock */}
+      {isPinUnlockOpen && pendingUnlockNote && (
+        <NoteLockScreen
+          noteId={pendingUnlockNote.id}
+          noteTitle={pendingUnlockNote.title}
+          onUnlock={handlePinUnlocked}
+          onCancel={() => {
+            setIsPinUnlockOpen(false);
+            setPendingUnlockNote(null);
+          }}
+        />
+      )}
 
       <BottomNavigation />
     </div>

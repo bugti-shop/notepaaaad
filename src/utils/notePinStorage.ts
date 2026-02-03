@@ -1,10 +1,18 @@
 // PIN lock storage for individual notes
 // Uses SHA-256 hashing similar to app lock
+// Supports biometric authentication per note
 
 import { getSetting, setSetting, removeSetting } from './settingsStorage';
 
 // Storage keys
 const getNotePinKey = (noteId: string) => `npd_note_pin_${noteId}`;
+const getNoteBiometricKey = (noteId: string) => `npd_note_biometric_${noteId}`;
+
+// Interface for note PIN settings
+export interface NotePinSettings {
+  pinHash: string | null;
+  biometricEnabled: boolean;
+}
 
 // Hash PIN using SHA-256
 export const hashNotePin = async (pin: string): Promise<string> => {
@@ -32,15 +40,32 @@ export const getNotePinHash = async (noteId: string): Promise<string | null> => 
   return getSetting<string | null>(getNotePinKey(noteId), null);
 };
 
+// Get full note PIN settings including biometric
+export const getNotePinSettings = async (noteId: string): Promise<NotePinSettings> => {
+  const [pinHash, biometricEnabled] = await Promise.all([
+    getSetting<string | null>(getNotePinKey(noteId), null),
+    getSetting<boolean>(getNoteBiometricKey(noteId), false),
+  ]);
+  return { pinHash, biometricEnabled };
+};
+
 // Set PIN for a note
 export const setNotePin = async (noteId: string, pin: string): Promise<void> => {
   const pinHash = await hashNotePin(pin);
   await setSetting(getNotePinKey(noteId), pinHash);
 };
 
-// Remove PIN from a note
+// Enable/disable biometric for a note
+export const setNoteBiometric = async (noteId: string, enabled: boolean): Promise<void> => {
+  await setSetting(getNoteBiometricKey(noteId), enabled);
+};
+
+// Remove PIN from a note (also removes biometric)
 export const removeNotePin = async (noteId: string): Promise<void> => {
-  await removeSetting(getNotePinKey(noteId));
+  await Promise.all([
+    removeSetting(getNotePinKey(noteId)),
+    removeSetting(getNoteBiometricKey(noteId)),
+  ]);
 };
 
 // Verify PIN for a specific note
