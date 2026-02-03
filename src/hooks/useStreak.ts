@@ -23,6 +23,8 @@ import {
   updateChallengeProgress,
 } from '@/utils/gamificationStorage';
 import { updateGoalProgress } from '@/utils/weeklyGoalsStorage';
+import { scheduleGracePeriodWarning } from '@/utils/gamificationNotifications';
+import { playStreakMilestoneSound } from '@/utils/gamificationSounds';
 
 interface UseStreakOptions {
   storageKey?: string;
@@ -64,6 +66,9 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
 
   useEffect(() => {
     loadStreak();
+    
+    // Schedule grace period warning if applicable
+    scheduleGracePeriodWarning().catch(console.error);
   }, [loadStreak]);
 
   // Listen for streak updates from other components
@@ -133,9 +138,12 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
     // Dispatch event for other components
     window.dispatchEvent(new CustomEvent('streakUpdated'));
     
-    // Haptic feedback for milestone, earned freeze, or grace period save
+    // Play milestone sound and haptic feedback
     if (result.newMilestone) {
+      playStreakMilestoneSound();
       triggerNotificationHaptic('success');
+      // Dispatch milestone event for celebration
+      window.dispatchEvent(new CustomEvent('streakMilestone', { detail: { milestone: result.newMilestone } }));
     } else if (result.earnedFreeze || result.usedGracePeriod) {
       triggerNotificationHaptic('success');
     } else if (result.streakIncremented) {
