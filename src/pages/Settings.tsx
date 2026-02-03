@@ -53,7 +53,7 @@ const Settings = () => {
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showThemeDialog, setShowThemeDialog] = useState(false);
-  const [showHapticDialog, setShowHapticDialog] = useState(false);
+  
   const [showLanguageDialog, setShowLanguageDialog] = useState(false);
   const [showNoteTypeVisibilitySheet, setShowNoteTypeVisibilitySheet] = useState(false);
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
@@ -378,7 +378,7 @@ const Settings = () => {
             <SectionHeading title={t('settings.preferences', 'Preferences')} />
             <SettingsRow label={t('settings.appearance')} onClick={() => setShowThemeDialog(true)} />
             <SettingsRow label={t('settings.language')} onClick={() => setShowLanguageDialog(true)} />
-            <SettingsRow label={t('settings.hapticFeedback')} onClick={() => setShowHapticDialog(true)} />
+            
             {Capacitor.isNativePlatform() && (
               <SettingsRow label={t('settings.quickAdd', 'Quick Add')} onClick={() => setShowQuickAddDialog(true)} />
             )}
@@ -693,48 +693,6 @@ const Settings = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Haptic Feedback Dialog */}
-      <Dialog open={showHapticDialog} onOpenChange={setShowHapticDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('settings.hapticFeedback')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            {(['off', 'light', 'medium', 'heavy'] as const).map((intensity) => (
-              <button
-                key={intensity}
-                onClick={async () => {
-                  setHapticIntensity(intensity);
-                  await setSetting('haptic_intensity', intensity);
-                  const label = intensity === 'off' ? t('settings.hapticOff') : t(`settings.haptic${intensity.charAt(0).toUpperCase() + intensity.slice(1)}`);
-                  toast({ title: t('settings.hapticSet', { intensity: label }) });
-                  setShowHapticDialog(false);
-                }}
-                className={cn(
-                  "w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all",
-                  hapticIntensity === intensity
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/30"
-                )}
-              >
-                <div className="flex flex-col items-start">
-                  <span className="font-medium text-foreground">
-                    {intensity === 'off' ? t('settings.hapticOff') : t(`settings.haptic${intensity.charAt(0).toUpperCase() + intensity.slice(1)}`)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {t(`settings.haptic${intensity.charAt(0).toUpperCase() + intensity.slice(1)}Desc`)}
-                  </span>
-                </div>
-                {hapticIntensity === intensity && (
-                  <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                    <Check className="h-3 w-3 text-primary-foreground" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Language Dialog */}
       <Dialog open={showLanguageDialog} onOpenChange={setShowLanguageDialog}>
