@@ -210,11 +210,11 @@ const Progress = () => {
           </div>
           
           {/* Week Progress */}
-          <div className="flex justify-between items-center gap-2 mt-6">
+          <div className="flex justify-between items-center gap-1 mt-6 overflow-hidden">
             {weekData.map((day, index) => (
-              <div key={day.date} className="flex flex-col items-center gap-2">
+              <div key={day.date} className="flex flex-col items-center gap-2 min-w-0 flex-1">
                 <span className={cn(
-                  "text-xs font-medium",
+                  "text-xs font-medium truncate",
                   day.isToday ? "text-primary" : "text-muted-foreground"
                 )}>
                   {day.day}
@@ -224,7 +224,7 @@ const Progress = () => {
                   animate={{ scale: 1 }}
                   transition={{ delay: index * 0.05 }}
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
+                    "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0",
                     day.completed 
                       ? "bg-orange-500 border-orange-500 text-white" 
                       : day.isToday 
@@ -232,7 +232,7 @@ const Progress = () => {
                         : "border-muted bg-muted/50"
                   )}
                 >
-                  {day.completed && <Check className="h-5 w-5" />}
+                  {day.completed && <Check className="h-4 w-4 sm:h-5 sm:w-5" />}
                 </motion.div>
               </div>
             ))}
