@@ -24,7 +24,7 @@ import { sanitizeForDisplay } from '@/lib/sanitize';
 
 import { ErrorBoundary } from './ErrorBoundary';
 import { ArrowLeft, Folder as FolderIcon, Plus, CalendarIcon, History, FileDown, Link2, ChevronDown, FileText, BookOpen, BarChart3, MoreVertical, Mic, Share2, Search, Image, Table, Minus, SeparatorHorizontal, MessageSquare, FileSymlink, FileType, Bell, Clock, Repeat, Trash2, Mail, Phone, LinkIcon, Copy, Replace, Palette, Hash, KeyRound } from 'lucide-react';
-import { NotePinSetupSheet } from './NotePinSetupSheet';
+import { NotePinSetupScreen } from './NotePinSetupScreen';
 import { hasNotePin } from '@/utils/notePinStorage';
 import { exportNoteToPdf, getPageBreakCount } from '@/utils/exportToPdf';
 import { toast } from 'sonner';
@@ -1766,15 +1766,16 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
         />
       )}
 
-      {/* PIN Lock Setup Sheet */}
-      {note && (
-        <NotePinSetupSheet
-          isOpen={isPinSetupOpen}
-          onClose={() => setIsPinSetupOpen(false)}
+      {/* Full Screen PIN Lock Setup */}
+      {note && isPinSetupOpen && (
+        <NotePinSetupScreen
           noteId={note.id}
-          onPinChanged={() => {
+          noteTitle={note.title}
+          onComplete={() => {
+            setIsPinSetupOpen(false);
             hasNotePin(note.id).then(setHasPinLock);
           }}
+          onCancel={() => setIsPinSetupOpen(false)}
         />
       )}
 
