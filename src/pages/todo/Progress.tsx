@@ -5,14 +5,17 @@ import { useStreak } from '@/hooks/useStreak';
 import { cn } from '@/lib/utils';
 import { Flame, Check, Snowflake, Trophy, Zap, TrendingUp, Calendar, Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
 import { loadTodoItems } from '@/utils/todoItemsStorage';
-import { isToday, isThisWeek, startOfWeek, endOfWeek, format } from 'date-fns';
+import { startOfWeek, endOfWeek } from 'date-fns';
 import Confetti from 'react-confetti';
+import { XpLevelProgress } from '@/components/XpLevelProgress';
+import { AchievementBadges } from '@/components/AchievementBadges';
+import { ActivityHeatmap } from '@/components/ActivityHeatmap';
+import { DailyChallenges } from '@/components/DailyChallenges';
 
 const Progress = () => {
   const { t } = useTranslation();
-  const { data, isLoading, completedToday, atRisk, status, weekData, refresh } = useStreak();
+  const { data, isLoading, completedToday, atRisk, status, weekData } = useStreak();
   const [showConfetti, setShowConfetti] = useState(false);
   const [celebratingMilestone, setCelebratingMilestone] = useState<number | null>(null);
   const [weekStats, setWeekStats] = useState({ completed: 0, total: 0 });
@@ -155,6 +158,9 @@ const Progress = () => {
 
       <div className="container mx-auto px-4 py-6 space-y-6">
         
+        {/* XP & Level Progress */}
+        <XpLevelProgress compact />
+        
         {/* Streak Card */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -280,6 +286,9 @@ const Progress = () => {
           )}
         </motion.div>
         
+        {/* Daily Challenges */}
+        <DailyChallenges />
+        
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">
           <motion.div 
@@ -334,6 +343,15 @@ const Progress = () => {
             <p className="text-2xl font-bold">{data?.streakFreezes || 0}</p>
           </motion.div>
         </div>
+        
+        {/* Achievement Badges */}
+        <AchievementBadges compact />
+        
+        {/* Activity Heatmap */}
+        <ActivityHeatmap />
+        
+        {/* Full Achievements */}
+        <AchievementBadges />
         
         {/* Milestones */}
         <motion.div 

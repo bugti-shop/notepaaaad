@@ -15,6 +15,12 @@ import {
   TASK_STREAK_KEY,
 } from '@/utils/streakStorage';
 import { triggerNotificationHaptic, triggerHaptic } from '@/utils/haptics';
+import {
+  addXp,
+  XP_REWARDS,
+  checkAndUnlockAchievements,
+  updateChallengeProgress,
+} from '@/utils/gamificationStorage';
 
 interface UseStreakOptions {
   storageKey?: string;
@@ -71,6 +77,49 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
   const recordTaskCompletion = useCallback(async (): Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean }> => {
     const result = await recordCompletion(storageKey);
     setData(result.data);
+    
+    // Award XP for task completion
+    await addXp(XP_REWARDS.TASK_COMPLETE, 'Task completed');
+    
+    // Award XP for streak day if streak incremented
+    if (result.streakIncremented) {
+      await addXp(XP_REWARDS.STREAK_DAY, 'Streak maintained');
+    }
+    
+    // Award XP for milestones
+    if (result.newMilestone) {
+      const milestoneXp = {
+        3: XP_REWARDS.MILESTONE_3,
+        7: XP_REWARDS.MILESTONE_7,
+        14: XP_REWARDS.MILESTONE_14,
+        30: XP_REWARDS.MILESTONE_30,
+        60: XP_REWARDS.MILESTONE_60,
+        100: XP_REWARDS.MILESTONE_100,
+        365: XP_REWARDS.MILESTONE_365,
+      };
+      const xp = milestoneXp[result.newMilestone as keyof typeof milestoneXp];
+      if (xp) {
+        await addXp(xp, `Milestone: ${result.newMilestone} days`);
+      }
+    }
+    
+    // Update daily challenges
+    await updateChallengeProgress('complete_tasks', 1);
+    
+    // Check for early completion
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      await updateChallengeProgress('early_completion', 1);
+    }
+    
+    // Check and unlock achievements
+    await checkAndUnlockAchievements({
+      currentStreak: result.data.currentStreak,
+      totalTasks: result.data.totalCompletions,
+      dailyTasks: result.data.dailyTaskCount,
+      streakFreezes: result.data.streakFreezes,
+      completionHour: hour,
+    });
     
     // Dispatch event for other components
     window.dispatchEvent(new CustomEvent('streakUpdated'));
