@@ -2585,8 +2585,8 @@ export const RichTextEditor = ({
 
       {toolbarPosition === 'bottom' && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t safe-area-bottom"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + var(--keyboard-inset, 0px))' }}
+          className="fixed left-0 right-0 z-50 bg-background border-t"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px))' }}
         >
           {toolbar}
         </div>
