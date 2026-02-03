@@ -12,6 +12,7 @@ import { XpLevelProgress } from '@/components/XpLevelProgress';
 import { AchievementBadges } from '@/components/AchievementBadges';
 import { DailyChallenges } from '@/components/DailyChallenges';
 import { WeeklyGoals } from '@/components/WeeklyGoals';
+
 const Progress = () => {
   const { t } = useTranslation();
   const { data, isLoading, completedToday, atRisk, status, weekData, gracePeriodRemaining } = useStreak();
@@ -95,12 +96,12 @@ const Progress = () => {
     return t('streak.keepGoingMessage', 'You\'re on a roll! Keep it up.');
   };
 
-  // Milestone badges
+  // Milestone badges - using semantic color classes
   const milestones = [
-    { value: 3, icon: Zap, label: '3 days', color: 'text-yellow-500' },
-    { value: 7, icon: Trophy, label: '1 week', color: 'text-blue-500' },
-    { value: 14, icon: TrendingUp, label: '2 weeks', color: 'text-green-500' },
-    { value: 30, icon: Flame, label: '1 month', color: 'text-orange-500' },
+    { value: 3, icon: Zap, label: '3 days', color: 'text-warning' },
+    { value: 7, icon: Trophy, label: '1 week', color: 'text-info' },
+    { value: 14, icon: TrendingUp, label: '2 weeks', color: 'text-success' },
+    { value: 30, icon: Flame, label: '1 month', color: 'text-streak' },
   ];
 
   if (isLoading) {
@@ -150,7 +151,7 @@ const Progress = () => {
                 animate={{ rotate: [0, -10, 10, -10, 0] }}
                 transition={{ duration: 0.5, repeat: 2 }}
               >
-                <Flame className="h-24 w-24 text-orange-500 fill-orange-400 mx-auto" />
+                <Flame className="h-24 w-24 text-streak fill-streak/80 mx-auto" />
               </motion.div>
               <h2 className="text-4xl font-bold mt-4 text-foreground">{celebratingMilestone} {t('streak.days', 'days')}!</h2>
               <p className="text-muted-foreground mt-2">{t('streak.milestoneReached', 'Milestone reached!')}</p>
@@ -188,11 +189,11 @@ const Progress = () => {
               <Flame 
                 className={cn(
                   "h-24 w-24 transition-colors",
-                  completedToday ? "text-orange-500 fill-orange-400" : "text-muted-foreground/30"
+                  completedToday ? "text-streak fill-streak/80" : "text-muted-foreground/30"
                 )} 
               />
               {data?.currentStreak !== undefined && data.currentStreak > 0 && (
-                <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-white drop-shadow-md mt-2">
+                <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-streak-foreground drop-shadow-md mt-2">
                   {data.currentStreak}
                 </span>
               )}
@@ -205,13 +206,13 @@ const Progress = () => {
             >
               <h2 className={cn(
                 "text-5xl font-bold",
-                completedToday ? "text-orange-500" : "text-muted-foreground"
+                completedToday ? "text-streak" : "text-muted-foreground"
               )}>
                 {data?.currentStreak || 0}
               </h2>
               <p className={cn(
                 "text-lg font-medium",
-                completedToday ? "text-orange-500" : "text-muted-foreground"
+                completedToday ? "text-streak" : "text-muted-foreground"
               )}>
                 {t('streak.dayStreak', 'day streak')}
               </p>
@@ -235,7 +236,7 @@ const Progress = () => {
                   className={cn(
                     "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all flex-shrink-0",
                     day.completed 
-                      ? "bg-orange-500 border-orange-500 text-white" 
+                      ? "bg-streak border-streak text-streak-foreground" 
                       : day.isToday 
                         ? "border-primary bg-primary/10" 
                         : "border-muted bg-muted/50"
@@ -252,10 +253,10 @@ const Progress = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex items-center justify-center gap-2 mt-6 pt-4 border-t bg-amber-500/10 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl"
+              className="flex items-center justify-center gap-2 mt-6 pt-4 border-t bg-warning/10 -mx-6 -mb-6 px-6 py-4 rounded-b-2xl"
             >
-              <Clock className="h-5 w-5 text-amber-500" />
-              <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+              <Clock className="h-5 w-5 text-warning" />
+              <span className="text-sm text-warning font-medium">
                 {t('streak.gracePeriodActive', '{{hours}}h grace period remaining - complete a task to save your streak!', { hours: gracePeriodRemaining })}
               </span>
             </motion.div>
@@ -264,7 +265,7 @@ const Progress = () => {
           {/* Streak Freezes */}
           {status !== 'grace_period' && data?.streakFreezes !== undefined && data.streakFreezes > 0 && (
             <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
-              <Snowflake className="h-5 w-5 text-blue-400" />
+              <Snowflake className="h-5 w-5 text-info" />
               <span className="text-sm text-muted-foreground">
                 {data.streakFreezes} {t('streak.freezesAvailable', 'streak freeze(s) available')}
               </span>
@@ -275,7 +276,7 @@ const Progress = () => {
           {!data?.freezesEarnedToday && (
             <div className="mt-6 pt-4 border-t">
               <div className="flex items-center gap-2 mb-2">
-                <Gift className="h-4 w-4 text-blue-400" />
+                <Gift className="h-4 w-4 text-info" />
                 <span className="text-sm text-muted-foreground">
                   {t('streak.earnFreeze', 'Complete {{remaining}} more tasks today to earn a freeze', { remaining: TASKS_FOR_FREEZE - freezeProgress })}
                 </span>
@@ -284,7 +285,7 @@ const Progress = () => {
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${freezeProgressPercent}%` }}
-                  className="bg-blue-400 h-2 rounded-full"
+                  className="bg-info h-2 rounded-full"
                 />
               </div>
               <div className="flex justify-between mt-1">
@@ -295,8 +296,8 @@ const Progress = () => {
           
           {data?.freezesEarnedToday && (
             <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
-              <Gift className="h-5 w-5 text-green-500" />
-              <span className="text-sm text-green-600 dark:text-green-400">
+              <Gift className="h-5 w-5 text-success" />
+              <span className="text-sm text-success">
                 {t('streak.freezeEarnedToday', 'Freeze earned today! 🎉')}
               </span>
             </div>
@@ -367,7 +368,6 @@ const Progress = () => {
         {/* Achievement Badges */}
         <AchievementBadges compact />
         
-        
         {/* Full Achievements */}
         <AchievementBadges />
         
@@ -409,10 +409,10 @@ const Progress = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 flex items-center gap-3"
+              className="bg-streak/10 border border-streak/30 rounded-xl p-4 flex items-center gap-3"
             >
-              <Flame className="h-5 w-5 text-orange-500 flex-shrink-0" />
-              <p className="text-sm text-orange-700 dark:text-orange-300">
+              <Flame className="h-5 w-5 text-streak flex-shrink-0" />
+              <p className="text-sm text-streak">
                 {t('streak.atRiskWarning', 'Complete one task today to keep your streak going!')}
               </p>
             </motion.div>
