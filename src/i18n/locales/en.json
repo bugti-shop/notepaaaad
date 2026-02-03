@@ -87,7 +87,25 @@
     "weeklyReview": "Weekly Review",
     "taskHistory": "Task History",
     "more": "More",
-    "profile": "Profile"
+    "profile": "Profile",
+    "progress": "Progress"
+  },
+  "streak": {
+    "dayStreak": "day streak",
+    "days": "days",
+    "tasks": "tasks",
+    "longestStreak": "Longest Streak",
+    "totalCompleted": "Total Completed",
+    "thisWeek": "This Week",
+    "freezes": "Freezes",
+    "freezesAvailable": "streak freeze(s) available",
+    "milestones": "Milestones",
+    "firstDayComplete": "Great start! Let's keep going tomorrow.",
+    "continueMessage": "I knew you'd come back! Let's do this again tomorrow.",
+    "newStreakMessage": "New streaks start today. Complete one task to begin!",
+    "atRiskMessage": "Complete one task today to keep your streak going!",
+    "keepGoingMessage": "You're on a roll! Keep it up.",
+    "atRiskWarning": "Complete one task today to keep your streak going!"
   },
   "profile": {
     "title": "Profile",

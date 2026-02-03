@@ -1,5 +1,5 @@
 import { startTransition, useCallback } from 'react';
-import { Home, Calendar, Settings, User } from 'lucide-react';
+import { Home, Calendar, Settings, TrendingUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/utils/haptics';
@@ -13,7 +13,7 @@ const triggerNavHaptic = async () => {
 const preloadRoutes: Record<string, () => Promise<any>> = {
   '/todo/today': () => import('@/pages/todo/Today'),
   '/todo/calendar': () => import('@/pages/todo/TodoCalendar'),
-  '/profile': () => import('@/pages/Profile'),
+  '/todo/progress': () => import('@/pages/todo/Progress'),
   '/todo/settings': () => import('@/pages/todo/TodoSettings'),
 };
 
@@ -25,7 +25,7 @@ export const TodoBottomNavigation = () => {
   const navItems = [
     { icon: Home, label: t('nav.home'), path: '/todo/today' },
     { icon: Calendar, label: t('nav.calendar'), path: '/todo/calendar' },
-    { icon: User, label: t('nav.profile'), path: '/profile' },
+    { icon: TrendingUp, label: t('nav.progress', 'Progress'), path: '/todo/progress' },
     { icon: Settings, label: t('nav.settings'), path: '/todo/settings' },
   ];
 
