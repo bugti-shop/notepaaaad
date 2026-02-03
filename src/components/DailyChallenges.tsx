@@ -10,6 +10,7 @@ import {
   loadDailyChallenges,
   refreshChallenges,
 } from '@/utils/gamificationStorage';
+import { playChallengeCompleteSound } from '@/utils/gamificationSounds';
 
 export const DailyChallenges = () => {
   const { t } = useTranslation();
@@ -26,6 +27,10 @@ export const DailyChallenges = () => {
 
     const handleComplete = (e: CustomEvent<{ challenge: DailyChallenge }>) => {
       setCompletedChallenge(e.detail.challenge);
+      
+      // Play celebration sound
+      playChallengeCompleteSound();
+      
       setTimeout(() => setCompletedChallenge(null), 3000);
       loadData();
     };

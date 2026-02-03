@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Trophy, Lock } from 'lucide-react';
+import { Trophy, Lock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   ALL_ACHIEVEMENTS,
@@ -9,6 +9,9 @@ import {
   loadAchievementsData,
   AchievementsData,
 } from '@/utils/gamificationStorage';
+import { playAchievementSound } from '@/utils/gamificationSounds';
+import { showAchievementNotification } from '@/utils/gamificationNotifications';
+import Confetti from 'react-confetti';
 
 interface AchievementBadgesProps {
   compact?: boolean;
@@ -18,6 +21,17 @@ export const AchievementBadges = ({ compact = false }: AchievementBadgesProps) =
   const { t } = useTranslation();
   const [achievementsData, setAchievementsData] = useState<AchievementsData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'streak' | 'tasks' | 'consistency' | 'special'>('all');
+  const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -26,10 +40,118 @@ export const AchievementBadges = ({ compact = false }: AchievementBadgesProps) =
     };
     loadData();
 
-    const handleUnlock = () => loadData();
-    window.addEventListener('achievementUnlocked', handleUnlock);
-    return () => window.removeEventListener('achievementUnlocked', handleUnlock);
+    const handleUnlock = async (e: CustomEvent<{ achievement: Achievement }>) => {
+      const achievement = e.detail.achievement;
+      
+      // Show celebration
+      setUnlockedAchievement(achievement);
+      setShowConfetti(true);
+      
+      // Play sound
+      playAchievementSound();
+      
+      // Show push notification
+      showAchievementNotification(achievement.name, achievement.xpReward);
+      
+      setTimeout(() => {
+        setUnlockedAchievement(null);
+        setShowConfetti(false);
+      }, 4000);
+      
+      loadData();
+    };
+    
+    window.addEventListener('achievementUnlocked', handleUnlock as EventListener);
+    return () => window.removeEventListener('achievementUnlocked', handleUnlock as EventListener);
   }, []);
+
+  // Achievement unlock celebration overlay
+  const renderUnlockCelebration = () => {
+    if (!unlockedAchievement) return null;
+    
+    return (
+      <>
+        {showConfetti && (
+          <Confetti
+            width={windowSize.width}
+            height={windowSize.height}
+            recycle={false}
+            numberOfPieces={200}
+            gravity={0.3}
+            colors={['#fbbf24', '#f59e0b', '#d97706', '#10b981', '#6366f1']}
+          />
+        )}
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ y: 50, rotateY: -90 }}
+              animate={{ y: 0, rotateY: 0 }}
+              transition={{ type: 'spring', damping: 12 }}
+              className="text-center"
+            >
+              {/* Sparkle effects */}
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ 
+                    opacity: [0, 1, 0], 
+                    scale: [0, 1.2, 0],
+                    x: [0, (Math.random() - 0.5) * 150],
+                    y: [0, (Math.random() - 0.5) * 150],
+                  }}
+                  transition={{ duration: 1, delay: i * 0.15, repeat: 2 }}
+                  className="absolute top-1/2 left-1/2"
+                >
+                  <Sparkles className="h-5 w-5 text-yellow-400" />
+                </motion.div>
+              ))}
+              
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.15, 1],
+                  rotate: [0, -5, 5, 0],
+                }}
+                transition={{ duration: 0.6, repeat: 2 }}
+                className="w-28 h-28 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-5xl shadow-2xl mx-auto"
+              >
+                {unlockedAchievement.icon}
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <h2 className="text-3xl font-bold mt-6 text-foreground">
+                  {t('achievements.unlocked', 'Achievement Unlocked!')}
+                </h2>
+                <p className="text-xl font-semibold mt-2 text-yellow-600 dark:text-yellow-400">
+                  {unlockedAchievement.name}
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  {unlockedAchievement.description}
+                </p>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.5, type: 'spring' }}
+                  className="mt-3 inline-block bg-green-500/20 text-green-600 dark:text-green-400 px-4 py-1 rounded-full font-semibold"
+                >
+                  +{unlockedAchievement.xpReward} XP
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
+      </>
+    );
+  };
 
   if (!achievementsData) return null;
 
@@ -55,11 +177,13 @@ export const AchievementBadges = ({ compact = false }: AchievementBadgesProps) =
       .slice(0, 5);
 
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-xl p-4 border"
-      >
+      <>
+        {renderUnlockCelebration()}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-xl p-4 border"
+        >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-yellow-500" />
@@ -89,16 +213,19 @@ export const AchievementBadges = ({ compact = false }: AchievementBadgesProps) =
             </div>
           )}
         </div>
-      </motion.div>
+        </motion.div>
+      </>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-xl p-4 border"
-    >
+    <>
+      {renderUnlockCelebration()}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card rounded-xl p-4 border"
+      >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-yellow-500" />
@@ -159,6 +286,7 @@ export const AchievementBadges = ({ compact = false }: AchievementBadgesProps) =
           );
         })}
       </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };

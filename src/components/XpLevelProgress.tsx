@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Star, Sparkles, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { loadXpData, XpData, getLevelTitle } from '@/utils/gamificationStorage';
+import { playLevelUpSound } from '@/utils/gamificationSounds';
+import { showLevelUpNotification } from '@/utils/gamificationNotifications';
+import Confetti from 'react-confetti';
 
 interface XpLevelProgressProps {
   compact?: boolean;
@@ -14,6 +17,16 @@ export const XpLevelProgress = ({ compact = false }: XpLevelProgressProps) => {
   const [xpData, setXpData] = useState<XpData | null>(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState<number | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -23,10 +36,24 @@ export const XpLevelProgress = ({ compact = false }: XpLevelProgressProps) => {
     loadData();
 
     const handleXpUpdate = () => loadData();
-    const handleLevelUp = (e: CustomEvent<{ level: number }>) => {
-      setNewLevel(e.detail.level);
+    const handleLevelUp = async (e: CustomEvent<{ level: number }>) => {
+      const level = e.detail.level;
+      const title = getLevelTitle(level);
+      
+      setNewLevel(level);
       setShowLevelUp(true);
-      setTimeout(() => setShowLevelUp(false), 3000);
+      setShowConfetti(true);
+      
+      // Play sound effect
+      playLevelUpSound();
+      
+      // Show push notification
+      showLevelUpNotification(level, title);
+      
+      setTimeout(() => {
+        setShowLevelUp(false);
+        setShowConfetti(false);
+      }, 4000);
       loadData();
     };
 
@@ -98,6 +125,18 @@ export const XpLevelProgress = ({ compact = false }: XpLevelProgressProps) => {
 
   return (
     <>
+      {/* Confetti for level up */}
+      {showConfetti && (
+        <Confetti
+          width={windowSize.width}
+          height={windowSize.height}
+          recycle={false}
+          numberOfPieces={300}
+          gravity={0.3}
+          colors={['#a855f7', '#6366f1', '#f59e0b', '#10b981', '#ec4899']}
+        />
+      )}
+
       {/* Level Up Celebration */}
       <AnimatePresence>
         {showLevelUp && newLevel && (
@@ -108,21 +147,67 @@ export const XpLevelProgress = ({ compact = false }: XpLevelProgressProps) => {
             className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ y: 50 }}
-              animate={{ y: 0 }}
+              initial={{ y: 50, rotateY: -90 }}
+              animate={{ y: 0, rotateY: 0 }}
+              transition={{ type: 'spring', damping: 15 }}
               className="text-center"
             >
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.5 }}
+              {/* Animated stars */}
+              <div className="relative">
+                {[...Array(8)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ 
+                      opacity: [0, 1, 0], 
+                      scale: [0, 1.5, 0],
+                      x: [0, (Math.random() - 0.5) * 200],
+                      y: [0, (Math.random() - 0.5) * 200],
+                    }}
+                    transition={{ duration: 1.5, delay: i * 0.1, repeat: 2 }}
+                    className="absolute top-1/2 left-1/2"
+                  >
+                    <Sparkles className="h-6 w-6 text-yellow-400" />
+                  </motion.div>
+                ))}
+                
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 10, -10, 0],
+                  }}
+                  transition={{ duration: 0.5, repeat: 3 }}
+                >
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl mx-auto">
+                    <span className="text-5xl font-bold text-white">{newLevel}</span>
+                  </div>
+                </motion.div>
+              </div>
+              
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-4xl font-bold mt-6 bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 bg-clip-text text-transparent"
               >
-                <Sparkles className="h-24 w-24 text-yellow-400 mx-auto" />
-              </motion.div>
-              <h2 className="text-4xl font-bold mt-4 bg-gradient-to-r from-purple-500 to-indigo-500 bg-clip-text text-transparent">
                 Level {newLevel}!
-              </h2>
-              <p className="text-xl text-foreground mt-2">{getLevelTitle(newLevel)}</p>
-              <p className="text-muted-foreground mt-2">{t('xp.levelUp', 'Keep going!')}</p>
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-2xl text-foreground mt-2 font-semibold"
+              >
+                {getLevelTitle(newLevel)}
+              </motion.p>
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="text-muted-foreground mt-2"
+              >
+                {t('xp.levelUpCongrats', 'Keep going, champion! 🏆')}
+              </motion.p>
             </motion.div>
           </motion.div>
         )}
