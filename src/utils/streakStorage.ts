@@ -13,6 +13,9 @@ export interface StreakData {
   totalCompletions: number;
   milestones: number[]; // Milestones achieved (3, 7, 14, 30, etc.)
   weekHistory: Record<string, boolean>; // Last 7 days completion status
+  dailyTaskCount: number; // Tasks completed today
+  lastTaskCountDate: string | null; // Date of dailyTaskCount
+  freezesEarnedToday: boolean; // Whether freeze was already earned today
 }
 
 export interface StreakConfig {
@@ -21,6 +24,7 @@ export interface StreakConfig {
 }
 
 const DEFAULT_MILESTONES = [3, 7, 14, 30, 60, 100, 365];
+const TASKS_FOR_FREEZE = 5; // Complete 5 tasks in a day to earn a freeze
 
 const getDefaultStreakData = (): StreakData => ({
   currentStreak: 0,
@@ -30,6 +34,9 @@ const getDefaultStreakData = (): StreakData => ({
   totalCompletions: 0,
   milestones: [],
   weekHistory: {},
+  dailyTaskCount: 0,
+  lastTaskCountDate: null,
+  freezesEarnedToday: false,
 });
 
 // Get today's date string in local time (YYYY-MM-DD)
@@ -100,6 +107,7 @@ export const recordCompletion = async (
   streakIncremented: boolean; 
   newMilestone: number | null;
   usedFreeze: boolean;
+  earnedFreeze: boolean;
 }> => {
   const data = await loadStreakData(storageKey);
   const today = getTodayDateString();
@@ -108,10 +116,29 @@ export const recordCompletion = async (
   let streakIncremented = false;
   let newMilestone: number | null = null;
   let usedFreeze = false;
+  let earnedFreeze = false;
   
-  // Already completed today - no changes needed
+  // Reset daily task count if it's a new day
+  if (data.lastTaskCountDate !== today) {
+    data.dailyTaskCount = 0;
+    data.lastTaskCountDate = today;
+    data.freezesEarnedToday = false;
+  }
+  
+  // Increment daily task count
+  data.dailyTaskCount += 1;
+  
+  // Check if earned a freeze (5 tasks in a day)
+  if (data.dailyTaskCount >= TASKS_FOR_FREEZE && !data.freezesEarnedToday) {
+    data.streakFreezes += 1;
+    data.freezesEarnedToday = true;
+    earnedFreeze = true;
+  }
+  
+  // Already completed today for streak purposes - return early but with updated task count
   if (data.lastCompletionDate === today) {
-    return { data, streakIncremented: false, newMilestone: null, usedFreeze: false };
+    await saveStreakData(storageKey, data);
+    return { data, streakIncremented: false, newMilestone: null, usedFreeze: false, earnedFreeze };
   }
   
   // Update total completions
@@ -179,7 +206,7 @@ export const recordCompletion = async (
   // Save updated data
   await saveStreakData(storageKey, data);
   
-  return { data, streakIncremented, newMilestone, usedFreeze };
+  return { data, streakIncremented, newMilestone, usedFreeze, earnedFreeze };
 };
 
 // Add streak freezes (can be earned or purchased)

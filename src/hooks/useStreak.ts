@@ -28,7 +28,7 @@ interface UseStreakReturn {
   atRisk: boolean;
   status: 'active' | 'at_risk' | 'lost' | 'new';
   weekData: Array<{ day: string; date: string; completed: boolean; isToday: boolean }>;
-  recordTaskCompletion: () => Promise<{ newMilestone: number | null; usedFreeze: boolean }>;
+  recordTaskCompletion: () => Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean }>;
   addFreeze: (count?: number) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -68,21 +68,23 @@ export const useStreak = (options: UseStreakOptions = {}): UseStreakReturn => {
   }, [loadStreak]);
 
   // Record a task completion
-  const recordTaskCompletion = useCallback(async (): Promise<{ newMilestone: number | null; usedFreeze: boolean }> => {
+  const recordTaskCompletion = useCallback(async (): Promise<{ newMilestone: number | null; usedFreeze: boolean; earnedFreeze: boolean }> => {
     const result = await recordCompletion(storageKey);
     setData(result.data);
     
     // Dispatch event for other components
     window.dispatchEvent(new CustomEvent('streakUpdated'));
     
-    // Haptic feedback for milestone
+    // Haptic feedback for milestone or earned freeze
     if (result.newMilestone) {
+      triggerNotificationHaptic('success');
+    } else if (result.earnedFreeze) {
       triggerNotificationHaptic('success');
     } else if (result.streakIncremented) {
       triggerHaptic('light');
     }
     
-    return { newMilestone: result.newMilestone, usedFreeze: result.usedFreeze };
+    return { newMilestone: result.newMilestone, usedFreeze: result.usedFreeze, earnedFreeze: result.earnedFreeze };
   }, [storageKey]);
 
   // Add streak freeze
