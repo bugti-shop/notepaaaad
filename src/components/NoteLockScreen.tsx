@@ -2,28 +2,41 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Lock, Fingerprint, KeyRound, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Lock, Fingerprint, KeyRound, AlertCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getNotePinSettings,
   verifyNotePinForNote,
+  removeNotePin,
   NotePinSettings,
 } from '@/utils/notePinStorage';
 import { triggerHaptic, triggerNotificationHaptic } from '@/utils/haptics';
 import { Capacitor } from '@capacitor/core';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface NoteLockScreenProps {
   noteId: string;
   noteTitle?: string;
   onUnlock: () => void;
   onCancel: () => void;
+  onPinRemoved?: () => void;
 }
 
 export const NoteLockScreen = ({ 
   noteId, 
   noteTitle,
   onUnlock, 
-  onCancel 
+  onCancel,
+  onPinRemoved,
 }: NoteLockScreenProps) => {
   const { t } = useTranslation();
   const [pin, setPin] = useState('');
@@ -32,6 +45,8 @@ export const NoteLockScreen = ({
   const [lockCountdown, setLockCountdown] = useState(0);
   const [settings, setSettings] = useState<NotePinSettings | null>(null);
   const [pinError, setPinError] = useState('');
+  const [showForgotDialog, setShowForgotDialog] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -117,6 +132,15 @@ export const NoteLockScreen = ({
     }
   };
 
+  const handleRemovePin = async () => {
+    await removeNotePin(noteId);
+    triggerNotificationHaptic('success');
+    toast.success(t('notePin.pinRemoved', 'PIN removed. Note is now accessible.'));
+    setShowRemoveConfirm(false);
+    onPinRemoved?.();
+    onUnlock();
+  };
+
   // Render PIN dots
   const renderPinDots = () => (
     <div className="flex gap-4 justify-center my-8">
@@ -199,60 +223,108 @@ export const NoteLockScreen = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6">
-      {/* Back button */}
-      <button
-        onClick={onCancel}
-        className="absolute top-4 left-4 p-2 rounded-full hover:bg-muted transition-colors"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
-      >
-        <ArrowLeft className="h-6 w-6 text-foreground" />
-      </button>
+    <>
+      <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6">
+        {/* Back button */}
+        <button
+          onClick={onCancel}
+          className="absolute top-4 left-4 p-2 rounded-full hover:bg-muted transition-colors"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        >
+          <ArrowLeft className="h-6 w-6 text-foreground" />
+        </button>
 
-      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-        <Lock className="h-10 w-10 text-primary" />
-      </div>
-      
-      <h1 className="text-2xl font-bold mb-2">{t('notePin.enterPin', 'Enter PIN')}</h1>
-      <p className="text-muted-foreground mb-4 text-center max-w-[280px]">
-        {noteTitle 
-          ? t('notePin.enterPinForNote', 'Enter PIN to unlock "{{title}}"', { title: noteTitle })
-          : t('notePin.enterPinToUnlock', 'Enter your PIN to unlock the note')
-        }
-      </p>
-      
-      {renderPinDots()}
-      
-      {pinError && (
-        <div className="flex items-center gap-2 text-destructive text-sm mb-4 animate-shake text-center">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{pinError}</span>
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+          <Lock className="h-10 w-10 text-primary" />
         </div>
-      )}
-      
-      {isLocked && (
-        <div className="text-center mb-4">
-          <p className="text-destructive font-medium">{t('notePin.locked', 'Locked')}</p>
-          <p className="text-muted-foreground text-sm">
-            {t('notePin.tryAgainIn', 'Try again in {{seconds}} seconds', { seconds: lockCountdown })}
-          </p>
-        </div>
-      )}
-      
-      {renderNumberPad()}
-      
-      <div className="flex gap-4 mt-8">
-        {settings.biometricEnabled && Capacitor.isNativePlatform() && (
-          <Button variant="ghost" onClick={attemptBiometric} className="gap-2">
-            <Fingerprint className="h-5 w-5" />
-            {t('notePin.useFingerprint', 'Use Fingerprint')}
-          </Button>
+        
+        <h1 className="text-2xl font-bold mb-2">{t('notePin.enterPin', 'Enter PIN')}</h1>
+        <p className="text-muted-foreground mb-4 text-center max-w-[280px]">
+          {noteTitle 
+            ? t('notePin.enterPinForNote', 'Enter PIN to unlock "{{title}}"', { title: noteTitle })
+            : t('notePin.enterPinToUnlock', 'Enter your PIN to unlock the note')
+          }
+        </p>
+        
+        {renderPinDots()}
+        
+        {pinError && (
+          <div className="flex items-center gap-2 text-destructive text-sm mb-4 animate-shake text-center">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{pinError}</span>
+          </div>
         )}
-        <Button variant="ghost" onClick={onCancel} className="gap-2">
-          <KeyRound className="h-5 w-5" />
-          {t('notePin.forgotPin', 'Forgot PIN?')}
-        </Button>
+        
+        {isLocked && (
+          <div className="text-center mb-4">
+            <p className="text-destructive font-medium">{t('notePin.locked', 'Locked')}</p>
+            <p className="text-muted-foreground text-sm">
+              {t('notePin.tryAgainIn', 'Try again in {{seconds}} seconds', { seconds: lockCountdown })}
+            </p>
+          </div>
+        )}
+        
+        {renderNumberPad()}
+        
+        <div className="flex gap-4 mt-8">
+          {settings.biometricEnabled && Capacitor.isNativePlatform() && (
+            <Button variant="ghost" onClick={attemptBiometric} className="gap-2">
+              <Fingerprint className="h-5 w-5" />
+              {t('notePin.useFingerprint', 'Use Fingerprint')}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => setShowForgotDialog(true)} className="gap-2">
+            <KeyRound className="h-5 w-5" />
+            {t('notePin.forgotPin', 'Forgot PIN?')}
+          </Button>
+        </div>
       </div>
-    </div>
+
+      {/* Forgot PIN Dialog */}
+      <AlertDialog open={showForgotDialog} onOpenChange={setShowForgotDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('notePin.forgotPinTitle', 'Forgot your PIN?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('notePin.forgotPinDescription', 'You can remove the PIN lock from this note. This will make the note accessible without a PIN.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowForgotDialog(false);
+                setShowRemoveConfirm(true);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t('notePin.removePin', 'Remove PIN')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Remove PIN Dialog */}
+      <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('notePin.confirmRemoveTitle', 'Remove PIN Lock?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('notePin.confirmRemoveDescription', 'Are you sure you want to remove the PIN? Anyone with access to your device will be able to open this note.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemovePin}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('notePin.yesRemovePin', 'Yes, Remove PIN')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };

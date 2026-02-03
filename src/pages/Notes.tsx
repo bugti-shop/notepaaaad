@@ -618,6 +618,10 @@ const Notes = () => {
             setIsPinUnlockOpen(false);
             setPendingUnlockNote(null);
           }}
+          onPinRemoved={() => {
+            // Refresh notes to update lock icon status
+            setNotes([...notes]);
+          }}
         />
       )}
 
