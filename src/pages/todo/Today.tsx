@@ -1847,16 +1847,13 @@ const Today = () => {
                       "flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap",
                       isSelected 
                         ? "text-primary-foreground" 
-                        : "hover:opacity-80",
+                        : "hover:opacity-80 text-foreground border-border",
                       !isSelected && "bg-[#f1f4f9] dark:bg-muted"
                     )}
                     style={isSelected ? { 
                       backgroundColor: folder.color, 
                       borderColor: folder.color 
-                    } : {
-                      borderColor: folder.color || 'hsl(var(--border))',
-                      color: folder.color || 'hsl(var(--foreground))'
-                    }}
+                    } : undefined}
                   >
                     <FolderIcon className="h-4 w-4" />
                     {folder.name}
