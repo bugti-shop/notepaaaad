@@ -1826,8 +1826,6 @@ const Today = () => {
               </button>
               {folders.map((folder) => {
                 const isSelected = selectedFolderId === folder.id;
-                // Create a light version of the folder color for unselected state background
-                const lightBgColor = folder.color ? `${folder.color}15` : undefined; // 15 = ~8% opacity in hex
                 return (
                   <button 
                     key={folder.id} 
@@ -1842,7 +1840,7 @@ const Today = () => {
                       backgroundColor: folder.color, 
                       borderColor: folder.color 
                     } : {
-                      backgroundColor: lightBgColor,
+                      backgroundColor: '#f1f4f9',
                       borderColor: folder.color || 'hsl(var(--border))',
                       color: folder.color || 'hsl(var(--foreground))'
                     }}
