@@ -1,5 +1,5 @@
 import { startTransition, useCallback } from 'react';
-import { Home, Calendar, Settings, TrendingUp } from 'lucide-react';
+import { Home, Calendar, Settings, TrendingUp, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/utils/haptics';
@@ -15,6 +15,7 @@ const preloadRoutes: Record<string, () => Promise<any>> = {
   '/todo/calendar': () => import('@/pages/todo/TodoCalendar'),
   '/todo/progress': () => import('@/pages/todo/Progress'),
   '/todo/settings': () => import('@/pages/todo/TodoSettings'),
+  '/profile': () => import('@/pages/Profile'),
 };
 
 export const TodoBottomNavigation = () => {
@@ -26,6 +27,7 @@ export const TodoBottomNavigation = () => {
     { icon: Home, label: t('nav.home'), path: '/todo/today' },
     { icon: Calendar, label: t('nav.calendar'), path: '/todo/calendar' },
     { icon: TrendingUp, label: t('nav.progress', 'Progress'), path: '/todo/progress' },
+    { icon: User, label: t('nav.profile', 'Profile'), path: '/profile' },
     { icon: Settings, label: t('nav.settings'), path: '/todo/settings' },
   ];
 
@@ -41,9 +43,9 @@ export const TodoBottomNavigation = () => {
   const handleNavigation = useCallback((path: string) => {
     triggerNavHaptic();
     startTransition(() => {
-      navigate(path);
+      navigate(path, { state: { from: location.pathname } });
     });
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <nav 
@@ -54,10 +56,11 @@ export const TodoBottomNavigation = () => {
         transform: 'translateZ(0)',
       }}
     >
-      <div className="grid grid-cols-4 h-14 max-w-screen-lg mx-auto">
+      <div className="grid grid-cols-5 h-14 max-w-screen-lg mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || 
+            (item.path === '/profile' && location.pathname === '/profile');
 
           return (
             <button
