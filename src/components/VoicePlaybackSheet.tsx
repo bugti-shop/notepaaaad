@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, Play, Pause, Share2 } from 'lucide-react';
+import { Trash2, Play, Pause, Share2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Share } from '@capacitor/share';
+import { createPlayableUrl, revokePlayableUrl, isDataUrl, isBlobUrl } from '@/utils/audioStorage';
 
 interface VoicePlaybackSheetProps {
   isOpen: boolean;
@@ -23,12 +24,14 @@ export const VoicePlaybackSheet = ({
 }: VoicePlaybackSheetProps) => {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playableUrlRef = useRef<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(duration);
   const [waveformBars, setWaveformBars] = useState<number[]>([]);
+  const [hasError, setHasError] = useState(false);
   
-  // Generate random waveform on mount
+  // Generate random waveform and setup playable URL on mount
   useEffect(() => {
     if (isOpen) {
       const bars: number[] = [];
@@ -38,8 +41,25 @@ export const VoicePlaybackSheet = ({
       setWaveformBars(bars);
       setCurrentTime(0);
       setIsPlaying(false);
+      setHasError(false);
+      
+      // Create playable URL
+      try {
+        playableUrlRef.current = createPlayableUrl(audioUrl);
+      } catch (error) {
+        console.error('[VoicePlaybackSheet] Failed to create playable URL:', error);
+        setHasError(true);
+      }
     }
-  }, [isOpen]);
+    
+    return () => {
+      // Cleanup playable URL
+      if (playableUrlRef.current && playableUrlRef.current !== audioUrl) {
+        revokePlayableUrl(playableUrlRef.current);
+        playableUrlRef.current = null;
+      }
+    };
+  }, [isOpen, audioUrl]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -136,8 +156,13 @@ export const VoicePlaybackSheet = ({
       {/* Sheet */}
       <div className="fixed bottom-0 left-0 right-0 z-[70] bg-card rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300">
         <div className="p-6 pb-8">
-          {/* Hidden audio element */}
-          <audio ref={audioRef} src={audioUrl} preload="metadata" />
+          {/* Hidden audio element with playable URL */}
+          <audio 
+            ref={audioRef} 
+            src={playableUrlRef.current || audioUrl} 
+            preload="metadata" 
+            onError={() => setHasError(true)}
+          />
           
           {/* Title */}
           <h2 className="text-xl font-semibold text-center text-foreground mb-6">

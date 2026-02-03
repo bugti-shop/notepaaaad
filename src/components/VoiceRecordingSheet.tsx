@@ -3,6 +3,7 @@ import { X, Mic, Check, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { blobToDataUrl } from '@/utils/audioStorage';
 
 interface VoiceRecordingSheetProps {
   isOpen: boolean;
@@ -154,12 +155,25 @@ export const VoiceRecordingSheet = ({ isOpen, onClose, onRecordingComplete }: Vo
     }
   };
 
-  const finishRecording = () => {
+  const finishRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.onstop = () => {
+      const currentRecordingTime = recordingTime;
+      
+      mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(audioBlob);
-        onRecordingComplete(audioBlob, url, recordingTime);
+        
+        try {
+          // Convert to persistent data URL instead of temporary blob URL
+          const dataUrl = await blobToDataUrl(audioBlob);
+          console.log('[VoiceRecording] Converted to data URL, length:', dataUrl.length);
+          onRecordingComplete(audioBlob, dataUrl, currentRecordingTime);
+        } catch (error) {
+          console.error('[VoiceRecording] Failed to convert to data URL:', error);
+          // Fallback to blob URL (won't survive page reload but at least works in session)
+          const blobUrl = URL.createObjectURL(audioBlob);
+          onRecordingComplete(audioBlob, blobUrl, currentRecordingTime);
+        }
+        
         cleanup();
         onClose();
       };
