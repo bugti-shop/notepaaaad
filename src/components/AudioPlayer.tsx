@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { Play, Pause, Volume2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { createPlayableUrl, revokePlayableUrl } from '@/utils/audioStorage';
 
 interface AudioPlayerProps {
   src: string;
@@ -12,10 +13,34 @@ const PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2];
 
 export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playableUrlRef = useRef<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [hasError, setHasError] = useState(false);
+
+  // Create playable URL on mount
+  useEffect(() => {
+    if (!src) {
+      setHasError(true);
+      return;
+    }
+
+    try {
+      playableUrlRef.current = createPlayableUrl(src);
+    } catch (error) {
+      console.error('[AudioPlayer] Failed to create playable URL:', error);
+      setHasError(true);
+    }
+
+    return () => {
+      if (playableUrlRef.current && playableUrlRef.current !== src) {
+        revokePlayableUrl(playableUrlRef.current);
+        playableUrlRef.current = null;
+      }
+    };
+  }, [src]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -24,15 +49,21 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleLoadedMetadata = () => setDuration(audio.duration);
     const handleEnded = () => setIsPlaying(false);
+    const handleError = () => {
+      console.error('[AudioPlayer] Audio playback error');
+      setHasError(true);
+    };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
     };
   }, []);
 
@@ -78,12 +109,25 @@ export const AudioPlayer = ({ src, className }: AudioPlayerProps) => {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Show error state
+  if (hasError) {
+    return (
+      <div className={cn(
+        "flex items-center gap-3 p-3 rounded-xl bg-destructive/10 border border-destructive/20",
+        className
+      )}>
+        <AlertCircle className="h-5 w-5 text-destructive" />
+        <span className="text-sm text-destructive">Audio unavailable</span>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "flex items-center gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/10",
       className
     )}>
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <audio ref={audioRef} src={playableUrlRef.current || src} preload="metadata" />
       
       {/* Play/Pause Button */}
       <Button

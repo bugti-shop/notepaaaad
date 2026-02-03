@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { blobToDataUrl } from '@/utils/audioStorage';
 
 interface VoiceRecorderProps {
   onRecordingComplete: (audioBlob: Blob, audioUrl: string, duration: number) => void;
@@ -155,9 +156,18 @@ export const VoiceRecorder = ({ onRecordingComplete, className, autoStart = fals
     triggerHaptic();
   };
 
-  const confirmRecording = () => {
+  const confirmRecording = async () => {
     if (audioBlobRef.current && audioUrl) {
-      onRecordingComplete(audioBlobRef.current, audioUrl, recordingTime);
+      try {
+        // Convert to persistent data URL
+        const dataUrl = await blobToDataUrl(audioBlobRef.current);
+        console.log('[VoiceRecorder] Converted to data URL, length:', dataUrl.length);
+        onRecordingComplete(audioBlobRef.current, dataUrl, recordingTime);
+      } catch (error) {
+        console.error('[VoiceRecorder] Failed to convert to data URL:', error);
+        // Fallback to existing blob URL
+        onRecordingComplete(audioBlobRef.current, audioUrl, recordingTime);
+      }
       triggerHaptic();
     }
   };
