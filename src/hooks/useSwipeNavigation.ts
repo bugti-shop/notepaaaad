@@ -4,7 +4,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 // Define navigation order for different sections
 const NOTES_SECTION_ORDER = ['/', '/notes', '/calendar', '/settings'];
-const TODO_SECTION_ORDER = ['/todo/today', '/todo/upcoming', '/todo/calendar', '/todo/settings'];
+const TODO_SECTION_ORDER = ['/todo/today', '/todo/calendar', '/profile', '/todo/progress', '/todo/settings'];
 
 interface SwipeConfig {
   minSwipeDistance?: number; // Minimum distance to trigger navigation

@@ -26,8 +26,8 @@ export const TodoBottomNavigation = () => {
   const navItems = [
     { icon: Home, label: t('nav.home'), path: '/todo/today' },
     { icon: Calendar, label: t('nav.calendar'), path: '/todo/calendar' },
-    { icon: TrendingUp, label: t('nav.progress', 'Progress'), path: '/todo/progress' },
     { icon: User, label: t('nav.profile', 'Profile'), path: '/profile' },
+    { icon: TrendingUp, label: t('nav.progress', 'Progress'), path: '/todo/progress' },
     { icon: Settings, label: t('nav.settings'), path: '/todo/settings' },
   ];
 
