@@ -1,17 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Lock, Trash2, Check, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Lock, Trash2, Fingerprint } from 'lucide-react';
 import { useHardwareBackButton } from '@/hooks/useHardwareBackButton';
 import { triggerHaptic } from '@/utils/haptics';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { Capacitor } from '@capacitor/core';
 import {
   hasNotePin,
   setNotePin,
   removeNotePin,
   verifyNotePinForNote,
+  getNotePinSettings,
+  setNoteBiometric,
 } from '@/utils/notePinStorage';
 
 interface NotePinSetupSheetProps {
@@ -34,6 +39,8 @@ export const NotePinSetupSheet = ({
   const [confirmPin, setConfirmPin] = useState('');
   const [oldPin, setOldPin] = useState('');
   const [hasPinProtection, setHasPinProtection] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [step, setStep] = useState<SetupStep>('enter');
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -46,15 +53,39 @@ export const NotePinSetupSheet = ({
 
   useEffect(() => {
     if (isOpen) {
-      hasNotePin(noteId).then((hasPin) => {
-        setHasPinProtection(hasPin);
-        setStep(hasPin ? 'verify_old' : 'enter');
-      });
+      loadSettings();
+      checkBiometric();
       setPin('');
       setConfirmPin('');
       setOldPin('');
     }
   }, [isOpen, noteId]);
+
+  const loadSettings = async () => {
+    const hasPin = await hasNotePin(noteId);
+    setHasPinProtection(hasPin);
+    setStep(hasPin ? 'verify_old' : 'enter');
+    
+    if (hasPin) {
+      const settings = await getNotePinSettings(noteId);
+      setBiometricEnabled(settings.biometricEnabled);
+    }
+  };
+
+  const checkBiometric = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      setBiometricAvailable(false);
+      return;
+    }
+    
+    try {
+      const { NativeBiometric } = await import('capacitor-native-biometric');
+      const result = await NativeBiometric.isAvailable();
+      setBiometricAvailable(result.isAvailable);
+    } catch {
+      setBiometricAvailable(false);
+    }
+  };
 
   // Focus first empty input when step changes
   useEffect(() => {
@@ -195,6 +226,15 @@ export const NotePinSetupSheet = ({
     setIsLoading(false);
   };
 
+  const handleBiometricToggle = async (enabled: boolean) => {
+    await setNoteBiometric(noteId, enabled);
+    setBiometricEnabled(enabled);
+    toast.success(enabled 
+      ? t('notePin.biometricEnabled', 'Biometric unlock enabled')
+      : t('notePin.biometricDisabled', 'Biometric unlock disabled')
+    );
+  };
+
   const getTitle = () => {
     switch (step) {
       case 'verify_old':
@@ -278,6 +318,25 @@ export const NotePinSetupSheet = ({
               />
             ))}
           </div>
+
+          {/* Biometric Toggle - only show when PIN is already set */}
+          {hasPinProtection && biometricAvailable && step === 'verify_old' && (
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Fingerprint className="h-5 w-5 text-primary" />
+                <div>
+                  <Label className="text-sm font-medium">{t('notePin.biometricUnlock', 'Biometric Unlock')}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('notePin.biometricDesc', 'Use fingerprint or Face ID to unlock')}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={biometricEnabled}
+                onCheckedChange={handleBiometricToggle}
+              />
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-4">
