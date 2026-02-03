@@ -97,7 +97,7 @@ export const ActivityHeatmap = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-xl p-4 border"
+      className="bg-card rounded-xl p-4 border overflow-hidden"
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -109,57 +109,62 @@ export const ActivityHeatmap = () => {
         </span>
       </div>
 
-      {/* Month Labels */}
-      <div className="flex mb-1 text-[10px] text-muted-foreground relative" style={{ marginLeft: '24px' }}>
-        {months.map((month, idx) => (
-          <span
-            key={idx}
-            className="absolute"
-            style={{ left: `${month.weekIndex * 13}px` }}
-          >
-            {month.name}
-          </span>
-        ))}
-      </div>
-
-      {/* Heatmap Grid */}
-      <div className="flex gap-0.5 overflow-x-auto pb-2">
-        {/* Day Labels */}
-        <div className="flex flex-col gap-0.5 mr-1 text-[10px] text-muted-foreground">
-          <span className="h-[10px]"></span>
-          <span className="h-[10px] leading-[10px]">Mon</span>
-          <span className="h-[10px]"></span>
-          <span className="h-[10px] leading-[10px]">Wed</span>
-          <span className="h-[10px]"></span>
-          <span className="h-[10px] leading-[10px]">Fri</span>
-          <span className="h-[10px]"></span>
+      {/* Scrollable Heatmap Container */}
+      <div className="overflow-x-auto pb-2">
+        {/* Month Labels */}
+        <div className="flex mb-1 text-[10px] text-muted-foreground h-4" style={{ paddingLeft: '28px' }}>
+          {months.map((month, idx) => (
+            <span
+              key={idx}
+              style={{ 
+                position: 'absolute',
+                left: `calc(28px + ${month.weekIndex * 12.5}px)`,
+              }}
+            >
+              {month.name}
+            </span>
+          ))}
         </div>
 
-        {/* Weeks */}
+        {/* Heatmap Grid */}
         <div className="flex gap-0.5">
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-0.5">
-              {/* Pad the first week if it doesn't start on Sunday */}
-              {weekIndex === 0 && week.length < 7 && 
-                Array(7 - week.length).fill(null).map((_, i) => (
-                  <div key={`pad-${i}`} className="w-[10px] h-[10px]" />
-                ))
-              }
-              {week.map((day) => (
-                <motion.div
-                  key={day.date}
-                  whileHover={{ scale: 1.5 }}
-                  onMouseEnter={() => setHoveredDay(day)}
-                  onMouseLeave={() => setHoveredDay(null)}
-                  className={cn(
-                    "w-[10px] h-[10px] rounded-[2px] cursor-pointer transition-colors",
-                    getLevelColor(day.level)
-                  )}
-                  title={`${format(new Date(day.date), 'MMM d, yyyy')}: ${day.count} XP`}
-                />
-              ))}
-            </div>
-          ))}
+          {/* Day Labels */}
+          <div className="flex flex-col gap-0.5 mr-1 text-[10px] text-muted-foreground flex-shrink-0">
+            <span className="h-[10px]"></span>
+            <span className="h-[10px] leading-[10px]">Mon</span>
+            <span className="h-[10px]"></span>
+            <span className="h-[10px] leading-[10px]">Wed</span>
+            <span className="h-[10px]"></span>
+            <span className="h-[10px] leading-[10px]">Fri</span>
+            <span className="h-[10px]"></span>
+          </div>
+
+          {/* Weeks */}
+          <div className="flex gap-0.5">
+            {weeks.map((week, weekIndex) => (
+              <div key={weekIndex} className="flex flex-col gap-0.5">
+                {/* Pad the first week if it doesn't start on Sunday */}
+                {weekIndex === 0 && week.length < 7 && 
+                  Array(7 - week.length).fill(null).map((_, i) => (
+                    <div key={`pad-${i}`} className="w-[10px] h-[10px]" />
+                  ))
+                }
+                {week.map((day) => (
+                  <motion.div
+                    key={day.date}
+                    whileHover={{ scale: 1.5 }}
+                    onMouseEnter={() => setHoveredDay(day)}
+                    onMouseLeave={() => setHoveredDay(null)}
+                    className={cn(
+                      "w-[10px] h-[10px] rounded-[2px] cursor-pointer transition-colors",
+                      getLevelColor(day.level)
+                    )}
+                    title={`${format(new Date(day.date), 'MMM d, yyyy')}: ${day.count} XP`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
