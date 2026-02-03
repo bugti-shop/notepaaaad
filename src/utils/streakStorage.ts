@@ -226,16 +226,27 @@ export const resetStreak = async (storageKey: string): Promise<StreakData> => {
   return data;
 };
 
-// Get week data for display (last 7 days)
+// Get week data for display (Saturday to Friday - current week)
 export const getWeekData = (data: StreakData): Array<{ day: string; date: string; completed: boolean; isToday: boolean }> => {
   const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   const today = new Date();
   const todayString = getTodayDateString();
+  const currentDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+  
+  // Calculate days since last Saturday
+  // If today is Saturday (6), daysSinceSaturday = 0
+  // If today is Sunday (0), daysSinceSaturday = 1
+  // If today is Friday (5), daysSinceSaturday = 6
+  const daysSinceSaturday = (currentDayOfWeek + 1) % 7;
   
   const result: Array<{ day: string; date: string; completed: boolean; isToday: boolean }> = [];
   
-  for (let i = 6; i >= 0; i--) {
-    const date = subDays(today, i);
+  // Start from Saturday and go through the week (Sat, Sun, Mon, Tue, Wed, Thu, Fri)
+  const weekOrder = [6, 0, 1, 2, 3, 4, 5]; // Saturday first, then Sunday through Friday
+  
+  for (let i = 0; i < 7; i++) {
+    const daysAgo = daysSinceSaturday - i;
+    const date = subDays(today, daysAgo);
     const dateString = getDateString(date);
     const dayIndex = date.getDay();
     
