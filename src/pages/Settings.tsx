@@ -22,7 +22,6 @@ import { CustomizeNavigationSheet } from '@/components/CustomizeNavigationSheet'
 import { AppLockSettingsSheet } from '@/components/AppLockSettingsSheet';
 import { AppLockSetup } from '@/components/AppLockSetup';
 import { WidgetSettingsSheet } from '@/components/WidgetSettingsSheet';
-import { MasterPinSetupSheet } from '@/components/MasterPinSetupSheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,7 +63,7 @@ const Settings = () => {
   const [showWidgetSettingsSheet, setShowWidgetSettingsSheet] = useState(false);
   const [showAppLockSettingsSheet, setShowAppLockSettingsSheet] = useState(false);
   const [showAppLockSetup, setShowAppLockSetup] = useState(false);
-  const [showMasterPinSheet, setShowMasterPinSheet] = useState(false);
+  
   const [showNotificationsExpanded, setShowNotificationsExpanded] = useState(false);
   const [hapticIntensity, setHapticIntensity] = useState<'off' | 'light' | 'medium' | 'heavy'>('medium');
   const [isRestoring, setIsRestoring] = useState(false);
@@ -462,7 +461,6 @@ const Settings = () => {
           <div className="border border-border rounded-lg overflow-hidden">
             <SectionHeading title={t('settings.security', 'Security')} />
             <SettingsRow label={t('settings.appLock', 'App Lock')} onClick={() => setShowAppLockSettingsSheet(true)} />
-            <SettingsRow label={t('settings.masterNotePin', 'Master Note PIN')} onClick={() => setShowMasterPinSheet(true)} />
           </div>
 
           {/* Data Management Section */}
@@ -807,10 +805,6 @@ const Settings = () => {
         </div>
       )}
 
-      <MasterPinSetupSheet
-        isOpen={showMasterPinSheet}
-        onClose={() => setShowMasterPinSheet(false)}
-      />
     </div>
   );
 };

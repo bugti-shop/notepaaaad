@@ -6,7 +6,6 @@ import { Trash2, Edit, Mic, FileText, Pen, Pin, FileCode, GitBranch, AlignLeft, 
 import { cn } from '@/lib/utils';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { getNoteProtection, NoteProtection } from '@/utils/noteProtection';
-import { hasNotePin } from '@/utils/notePinStorage';
 import { getSetting } from '@/utils/settingsStorage';
 import { logActivity } from '@/utils/activityLogger';
 import {
@@ -65,7 +64,6 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [noteProtection, setNoteProtection] = useState<NoteProtection>({ hasPassword: false, useBiometric: false });
-  const [hasPinLock, setHasPinLock] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
@@ -74,7 +72,6 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
   // Load protection status async
   useEffect(() => {
     getNoteProtection(note.id).then(setNoteProtection);
-    hasNotePin(note.id).then(setHasPinLock);
   }, [note.id]);
 
   const isSticky = note.type === 'sticky';
@@ -303,10 +300,7 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
             {note.isFavorite && (
               <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 shrink-0" />
             )}
-            {hasPinLock && (
-              <Lock className="h-4 w-4 text-amber-600 shrink-0" />
-            )}
-            {(noteProtection.hasPassword || noteProtection.useBiometric) && !hasPinLock && (
+            {(noteProtection.hasPassword || noteProtection.useBiometric) && (
               <Lock className="h-4 w-4 text-primary shrink-0" />
             )}
           </div>

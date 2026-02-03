@@ -2,9 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { Note } from '@/types/note';
 import { NoteEditor } from '@/components/NoteEditor';
-import { Layers, Settings, Pin, Download, ListTodo, FileText, Archive, ArchiveRestore, Trash2, RotateCcw, Sun, Moon, Search, X, KeyRound } from 'lucide-react';
-import { NoteLockScreen } from '@/components/NoteLockScreen';
-import { hasNotePin } from '@/utils/notePinStorage';
+import { Layers, Settings, Pin, Download, ListTodo, FileText, Archive, ArchiveRestore, Trash2, RotateCcw, Sun, Moon, Search, X } from 'lucide-react';
 import { debouncedSaveNotes, saveNoteToDBSingle, saveNotesToDB, deleteNoteFromDB } from '@/utils/noteStorage';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -70,10 +68,6 @@ const Notes = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'active' | 'archived' | 'trash'>('active');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // PIN unlock state
-  const [isPinUnlockOpen, setIsPinUnlockOpen] = useState(false);
-  const [pendingUnlockNote, setPendingUnlockNote] = useState<Note | null>(null);
 
   const handleSaveNote = useCallback((note: Note) => {
     setNotes(prevNotes => {
@@ -92,28 +86,9 @@ const Notes = () => {
     });
   }, []);
 
-  const handleEditNote = async (note: Note) => {
-    // Check if note has PIN lock
-    const hasPinProtection = await hasNotePin(note.id);
-    
-    if (hasPinProtection) {
-      // Need to unlock first
-      setPendingUnlockNote(note);
-      setIsPinUnlockOpen(true);
-    } else {
-      // No PIN, open directly
-      setSelectedNote(note);
-      setIsEditorOpen(true);
-    }
-  };
-  
-  const handlePinUnlocked = () => {
-    if (pendingUnlockNote) {
-      setSelectedNote(pendingUnlockNote);
-      setIsEditorOpen(true);
-      setPendingUnlockNote(null);
-      setIsPinUnlockOpen(false);
-    }
+  const handleEditNote = (note: Note) => {
+    setSelectedNote(note);
+    setIsEditorOpen(true);
   };
 
   const handleTogglePin = (noteId: string, e: React.MouseEvent) => {
@@ -608,22 +583,6 @@ const Notes = () => {
         returnTo="/notes"
       />
 
-      {/* Full Screen PIN Unlock */}
-      {isPinUnlockOpen && pendingUnlockNote && (
-        <NoteLockScreen
-          noteId={pendingUnlockNote.id}
-          noteTitle={pendingUnlockNote.title}
-          onUnlock={handlePinUnlocked}
-          onCancel={() => {
-            setIsPinUnlockOpen(false);
-            setPendingUnlockNote(null);
-          }}
-          onPinRemoved={() => {
-            // Refresh notes to update lock icon status
-            setNotes([...notes]);
-          }}
-        />
-      )}
 
       <BottomNavigation />
     </div>
