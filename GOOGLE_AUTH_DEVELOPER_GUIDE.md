@@ -1,5 +1,7 @@
 # Google Authentication Developer Guide
 
+**Package Name:** `nota.npd.com`
+
 This document provides a comprehensive guide for understanding and setting up Google Authentication in the Npd app.
 
 ---
@@ -14,6 +16,88 @@ This document provides a comprehensive guide for understanding and setting up Go
 | `Profile.tsx` | `src/pages/` | UI component with Sign In/Sign Out buttons |
 | `App.tsx` | `src/` | Wraps app with `<GoogleAuthProvider>` |
 | `capacitor.config.ts` | Root | Native plugin configuration with `webClientId` |
+| `MainActivity.java` | `android/app/.../` | **CRITICAL** - Handles Google sign-in result |
+
+---
+
+## ⚠️ CRITICAL: Android Native Sign-In Not Working
+
+If sign-in shows the account picker but nothing happens after selecting an account, follow this troubleshooting guide:
+
+### Most Common Issue: SHA-1 Mismatch
+
+You need MULTIPLE SHA-1 fingerprints in Google Cloud Console:
+
+| Build Type | When Used | How to Get |
+|------------|-----------|------------|
+| Debug SHA-1 | Running from Android Studio | `./gradlew signingReport` |
+| Release SHA-1 | Signed APK/AAB | `keytool -printcert -jarfile app-release.apk` |
+| Play Store SHA-1 | Apps from Google Play | Google Play Console → App Signing |
+
+### Get SHA-1 from Your Release APK
+
+```bash
+# From signed APK
+keytool -printcert -jarfile app-release.apk
+
+# From keystore directly
+keytool -list -v -keystore /path/to/your-release.keystore -alias your-alias
+```
+
+### Required Google Cloud Console Setup
+
+You need **2 OAuth Client IDs**:
+
+1. **Web Client** (Type: Web application)
+   - Client ID: `52777395492-vnlk2hkr3pv15dtpgp2m51p7418vll90.apps.googleusercontent.com`
+   - This goes in: `capacitor.config.ts`, `strings.xml`, `GoogleAuthContext.tsx`
+
+2. **Android Client** (Type: Android)
+   - Package name: `nota.npd.com`
+   - SHA-1: Your **RELEASE** keystore SHA-1
+   - Create separate clients for debug and release SHA-1s
+
+### MainActivity.java Must Be Modified
+
+```java
+package nota.npd.com;
+
+import android.content.Intent;
+import android.util.Log;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.PluginHandle;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+    
+    private static final String TAG = "MainActivity";
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult: requestCode=" + requestCode + ", resultCode=" + resultCode);
+        
+        // CRITICAL: Handle Google Sign-In result BEFORE calling super
+        if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN && 
+            requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+            Log.d(TAG, "Handling Google Sign-In result");
+            PluginHandle pluginHandle = getBridge().getPlugin("SocialLogin");
+            if (pluginHandle != null) {
+                SocialLoginPlugin plugin = (SocialLoginPlugin) pluginHandle.getInstance();
+                if (plugin != null) {
+                    plugin.handleGoogleLoginIntent(requestCode, data);
+                }
+            }
+        }
+        
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+    
+    @Override
+    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+}
+```
 
 ---
 
@@ -54,19 +138,6 @@ This document provides a comprehensive guide for understanding and setting up Go
                     │ Store in localStorage │
                     │ Update React Context  │
                     └───────────────────────┘
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │ Dispatch 'googleAuth  │
-                    │ Changed' Event        │
-                    └───────────────────────┘
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │ SmartSyncProvider     │
-                    │ Triggers Google Drive │
-                    │ Sync Automatically    │
-                    └───────────────────────┘
 ```
 
 ---
@@ -76,56 +147,43 @@ This document provides a comprehensive guide for understanding and setting up Go
 ### Step 1: Create OAuth 2.0 Credentials
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Navigate to **APIs & Services** → **Credentials**
-4. Click **Create Credentials** → **OAuth 2.0 Client IDs**
+2. Navigate to **APIs & Services** → **Credentials**
+3. Click **Create Credentials** → **OAuth 2.0 Client IDs**
 
 ### Step 2: Configure OAuth Consent Screen
 
 1. Go to **APIs & Services** → **OAuth consent screen**
 2. Choose **External** user type
-3. Fill in required fields:
-   - App name: `Npd`
-   - User support email: Your email
-   - Developer contact: Your email
+3. Fill in required fields
 4. Add scopes:
    ```
-   .../auth/userinfo.email
-   .../auth/userinfo.profile
+   email
+   profile
    openid
    https://www.googleapis.com/auth/drive.appdata
    ```
+5. **Testing mode**: Add your test email addresses
+6. **Publishing**: For production, submit for verification
 
 ### Step 3: Create Web Client ID
 
-1. **Application type:** Web application
-2. **Name:** `Npd Web Client`
-3. **Authorized JavaScript origins:**
-   ```
-   https://your-domain.lovable.app
-   https://your-preview-url.lovableproject.com
-   http://localhost:5173 (for local development)
-   ```
-4. **Authorized redirect URIs:**
-   ```
-   https://your-domain.lovable.app
-   https://your-preview-url.lovableproject.com
-   ```
+- **Application type:** Web application
+- **Name:** `Npd Web Client`
+- Copy the Client ID
 
-### Step 4: Create Android Client ID (for Native App)
+### Step 4: Create Android Client ID
 
-1. **Application type:** Android
-2. **Name:** `Npd Android Client`
-3. **Package name:** `app.lovable.50841fa6da0045ee9595ec5e1a9cdd28`
-4. **SHA-1 certificate fingerprint:** 
-   - For debug: Run `./gradlew signingReport` in Android project
-   - For release: Use your release keystore
+- **Application type:** Android
+- **Name:** `Npd Android Release`
+- **Package name:** `nota.npd.com`
+- **SHA-1:** From your RELEASE keystore
 
-### Step 5: Create iOS Client ID (for Native App)
+⚠️ Create SEPARATE Android clients for each SHA-1 (debug, release, Play Store)
 
-1. **Application type:** iOS
-2. **Name:** `Npd iOS Client`
-3. **Bundle ID:** `app.lovable.50841fa6da0045ee9595ec5e1a9cdd28`
+### Step 5: Enable Required APIs
+
+- ✅ Google People API
+- ✅ Google Drive API
 
 ---
 
@@ -133,107 +191,91 @@ This document provides a comprehensive guide for understanding and setting up Go
 
 ### capacitor.config.ts
 ```typescript
-import { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'app.lovable.50841fa6da0045ee9595ec5e1a9cdd28',
-  appName: 'Npd',
-  webDir: 'dist',
-  plugins: {
-    SocialLogin: {
-      google: {
-        // This is the WEB Client ID (not Android/iOS)
-        webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-      },
+plugins: {
+  SocialLogin: {
+    google: {
+      webClientId: '52777395492-vnlk2hkr3pv15dtpgp2m51p7418vll90.apps.googleusercontent.com',
     },
   },
-};
-
-export default config;
+},
 ```
 
-### GoogleAuthContext.tsx - Key Constants
+### android/app/src/main/res/values/strings.xml
+```xml
+<string name="server_client_id">52777395492-vnlk2hkr3pv15dtpgp2m51p7418vll90.apps.googleusercontent.com</string>
+```
+
+### GoogleAuthContext.tsx
 ```typescript
-// Web Client ID - same as in capacitor.config.ts
-const GOOGLE_WEB_CLIENT_ID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
-
-// OAuth Scopes requested
-const SCOPES = [
-  'profile',                                    // Basic profile info
-  'email',                                      // Email address
-  'https://www.googleapis.com/auth/drive.appdata'  // App-specific Drive folder
-];
+const GOOGLE_WEB_CLIENT_ID = '52777395492-vnlk2hkr3pv15dtpgp2m51p7418vll90.apps.googleusercontent.com';
 ```
+
+**All three must use the SAME Web Client ID!**
 
 ---
 
-## 📱 Platform-Specific Setup
+## 🐛 Error Codes and Solutions
 
-### Web Platform
+### Error 10: "Developer console is not set up correctly"
 
-1. Add Google Identity Services script to `index.html`:
-```html
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-```
+**Cause:** SHA-1 mismatch
 
-2. The `signInWeb()` function uses Google Identity Services OAuth2 popup flow
+**Solution:**
+1. Get SHA-1 from your actual signed APK:
+   ```bash
+   keytool -printcert -jarfile app-release.apk
+   ```
+2. Create Android OAuth client with this SHA-1
+3. Package name must be exactly: `nota.npd.com`
 
-### Android Platform
+### Error 16: "Account reauth failed"
 
-1. **Install dependencies:**
-```bash
-npm install @capgo/capacitor-social-login
-npx cap sync android
-```
+**Solution:**
+1. Clear app data on device
+2. Remove app from https://myaccount.google.com/permissions
+3. Try again
 
-2. **Update `android/app/build.gradle`:**
-```gradle
-dependencies {
-    implementation 'com.google.android.gms:play-services-auth:20.7.0'
-}
-```
+### Sign-in completes but nothing happens
 
-3. **Update `android/app/src/main/res/values/strings.xml`:**
-```xml
-<resources>
-    <string name="server_client_id">YOUR_WEB_CLIENT_ID.apps.googleusercontent.com</string>
-</resources>
-```
-
-4. **Configure SHA-1 fingerprint** in Google Cloud Console (see Step 4 above)
-
-### iOS Platform
-
-1. **Install dependencies:**
-```bash
-npm install @capgo/capacitor-social-login
-npx cap sync ios
-```
-
-2. **Update `ios/App/App/Info.plist`:**
-```xml
-<key>GIDClientID</key>
-<string>YOUR_IOS_CLIENT_ID.apps.googleusercontent.com</string>
-<key>CFBundleURLTypes</key>
-<array>
-    <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
-            <string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
-        </array>
-    </dict>
-</array>
-```
+**Solution:**
+1. Verify MainActivity implements `ModifiedMainActivityForSocialLoginPlugin`
+2. Ensure `onActivityResult` forwards to `handleGoogleLoginIntent`
+3. Rebuild: `npx cap sync android`
 
 ---
 
-## 🔌 API Endpoints Used
+## 🔍 Debugging with Logcat
 
-| Endpoint | Purpose |
-|----------|---------|
-| `https://accounts.google.com/gsi/client` | Google Identity Services SDK |
-| `https://www.googleapis.com/oauth2/v3/userinfo` | Fetch user profile info |
-| `https://www.googleapis.com/drive/v3/files` | Google Drive API for sync |
+Check Android logs after attempting sign-in:
+
+```bash
+adb logcat | grep -E "(GoogleAuth|MainActivity|SocialLogin)"
+```
+
+Look for these messages:
+```
+[GoogleAuth] signIn called, platform: android
+[GoogleAuth] Using native sign-in
+[GoogleAuth] Starting native sign-in...
+[GoogleAuth] Login response received: {...}
+[GoogleAuth] Sign-in successful for: user@email.com
+```
+
+If you see ERROR 10 message, your SHA-1 is wrong.
+
+---
+
+## ✅ Debugging Checklist
+
+- [ ] Web Client ID is the same in all 3 places
+- [ ] Android OAuth client exists with correct package name (`nota.npd.com`)
+- [ ] Android OAuth client has SHA-1 from your **release** keystore
+- [ ] If using Play App Signing, also add Play Store's SHA-1
+- [ ] MainActivity implements `ModifiedMainActivityForSocialLoginPlugin`
+- [ ] MainActivity's `onActivityResult` forwards to `handleGoogleLoginIntent`
+- [ ] Test email is added to OAuth consent screen test users
+- [ ] Required APIs are enabled (People API, Drive API)
+- [ ] App rebuilt after changes: `npx cap sync android`
 
 ---
 
@@ -247,41 +289,18 @@ npx cap sync ios
 ### GoogleUser Object Structure
 ```typescript
 interface GoogleUser {
-  id: string;              // Google user ID
-  email: string;           // User email
-  name: string;            // Display name
-  givenName?: string;      // First name
-  familyName?: string;     // Last name
-  imageUrl?: string;       // Profile picture URL
+  id: string;
+  email: string;
+  name: string;
+  givenName?: string;
+  familyName?: string;
+  imageUrl?: string;
   authentication: {
-    accessToken: string;   // OAuth access token
-    refreshToken?: string; // OAuth refresh token (native only)
-    idToken?: string;      // JWT ID token
+    accessToken: string;
+    refreshToken?: string;
+    idToken?: string;
   };
 }
-```
-
----
-
-## 🔄 Event System
-
-### Custom Events Dispatched
-
-| Event Name | When Fired | Payload |
-|------------|------------|---------|
-| `googleAuthChanged` | Sign in/out | `{ user: GoogleUser, signedIn: boolean }` |
-
-### Listening to Auth Changes
-```typescript
-window.addEventListener('googleAuthChanged', (event: CustomEvent) => {
-  const { user, signedIn } = event.detail;
-  if (signedIn) {
-    console.log('User signed in:', user.email);
-    // Access token available at: user.authentication.accessToken
-  } else {
-    console.log('User signed out');
-  }
-});
 ```
 
 ---
@@ -293,15 +312,13 @@ import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 
 function MyComponent() {
   const { 
-    user,           // GoogleUser | null
-    isLoading,      // boolean - true during initial check
-    isSignedIn,     // boolean - convenience flag
-    signIn,         // () => Promise<void>
-    signOut,        // () => Promise<void>
-    refreshToken    // () => Promise<string | null>
+    user,
+    isLoading,
+    isSignedIn,
+    signIn,
+    signOut,
+    refreshToken
   } = useGoogleAuth();
-
-  if (isLoading) return <div>Loading...</div>;
 
   return (
     <div>
@@ -320,41 +337,6 @@ function MyComponent() {
 
 ---
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| "popup_closed_by_user" | User closed OAuth popup | Normal behavior, no action needed |
-| "access_denied" | User denied permissions | Check scopes, ensure consent screen is configured |
-| "invalid_client" | Wrong Client ID | Verify Client ID matches Google Console |
-| Token expired | Access token is 1 hour | Call `refreshToken()` before API calls |
-| Native login fails | Missing SHA-1 | Add debug/release SHA-1 to Google Console |
-
-### Debug Logging
-
-The auth context logs important events to console:
-```
-[GoogleAuth] Initializing...
-[GoogleAuth] Checking existing session...
-[GoogleAuth] User signed in: user@example.com
-[GoogleAuth] Sign out successful
-```
-
-### Testing Checklist
-
-- [ ] Web: OAuth popup opens and closes properly
-- [ ] Web: User info is fetched after login
-- [ ] Web: Token is stored in localStorage
-- [ ] Native Android: Login dialog appears
-- [ ] Native iOS: Login sheet appears
-- [ ] Token refresh works after 1 hour
-- [ ] Sign out clears all stored data
-- [ ] Google Drive sync triggers after login
-
----
-
 ## 📚 Dependencies
 
 ```json
@@ -368,18 +350,6 @@ The auth context logs important events to console:
 
 ## 🔗 Related Documentation
 
+- [Capgo Social Login Issues](https://github.com/Cap-go/capacitor-social-login/issues/199)
 - [Google Identity Services](https://developers.google.com/identity/gsi/web)
-- [Capgo Social Login Plugin](https://github.com/Cap-go/capacitor-social-login)
 - [Google Drive API](https://developers.google.com/drive/api/v3/about-sdk)
-- [Capacitor Documentation](https://capacitorjs.com/docs)
-
----
-
-## 📞 Support
-
-For issues specific to this implementation, check:
-1. Browser console for web issues
-2. Android Logcat for native Android issues
-3. Xcode console for native iOS issues
-
-Filter logs by "GoogleAuth" or "SocialLogin" for relevant entries.

@@ -109,15 +109,22 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
 
     const initNative = async () => {
       try {
+        console.log('[GoogleAuth] Initializing native plugin...');
+        console.log('[GoogleAuth] Platform:', platform);
+        console.log('[GoogleAuth] Web Client ID:', GOOGLE_WEB_CLIENT_ID);
+        
         await SocialLogin.initialize({
           google: {
             webClientId: GOOGLE_WEB_CLIENT_ID,
             mode: 'online',
           },
         });
+        
+        console.log('[GoogleAuth] Native plugin initialized successfully');
         await checkExistingSession();
       } catch (error) {
-        console.error('Failed to initialize native Google auth:', error);
+        console.error('[GoogleAuth] Failed to initialize native Google auth:', error);
+        console.error('[GoogleAuth] Error details:', JSON.stringify(error, null, 2));
       } finally {
         setIsLoading(false);
       }
@@ -210,59 +217,112 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
 
   // Native sign-in using Capgo plugin
   const signInNative = useCallback(async (): Promise<GoogleUser | null> => {
-    const response = await SocialLogin.login({
-      provider: 'google',
-      options: {
-        scopes: SCOPES,
-      },
-    });
-
-    if (!response || response.provider !== 'google') {
-      throw new Error('Sign in failed - no response');
-    }
-
-    const result = response.result as GoogleLoginResponseOnline;
+    console.log('[GoogleAuth] Starting native sign-in...');
     
-    if (result.responseType !== 'online') {
-      throw new Error('Expected online login response');
+    try {
+      const response = await SocialLogin.login({
+        provider: 'google',
+        options: {
+          scopes: SCOPES,
+        },
+      });
+
+      console.log('[GoogleAuth] Login response received:', JSON.stringify(response, null, 2));
+
+      if (!response) {
+        console.error('[GoogleAuth] No response from SocialLogin.login()');
+        throw new Error('Sign in failed - no response');
+      }
+
+      if (response.provider !== 'google') {
+        console.error('[GoogleAuth] Wrong provider in response:', response.provider);
+        throw new Error('Sign in failed - wrong provider');
+      }
+
+      const result = response.result as GoogleLoginResponseOnline;
+      
+      console.log('[GoogleAuth] Response type:', result?.responseType);
+      console.log('[GoogleAuth] Profile:', JSON.stringify(result?.profile, null, 2));
+      console.log('[GoogleAuth] Has accessToken:', !!result?.accessToken);
+      console.log('[GoogleAuth] Has idToken:', !!result?.idToken);
+
+      // Handle both online and offline response types
+      if (!result || (result.responseType !== 'online' && result.responseType !== 'offline')) {
+        console.error('[GoogleAuth] Unexpected response type:', result?.responseType);
+        // Try to extract data anyway
+      }
+
+      const googleUser: GoogleUser = {
+        id: result?.profile?.id || '',
+        email: result?.profile?.email || '',
+        name: result?.profile?.name || '',
+        givenName: result?.profile?.givenName || undefined,
+        familyName: result?.profile?.familyName || undefined,
+        imageUrl: result?.profile?.imageUrl || undefined,
+        authentication: {
+          accessToken: result?.accessToken?.token || '',
+          idToken: result?.idToken || undefined,
+          refreshToken: undefined,
+        },
+      };
+
+      console.log('[GoogleAuth] Created user object:', JSON.stringify(googleUser, null, 2));
+
+      if (!googleUser.email) {
+        console.error('[GoogleAuth] No email in response - sign-in may have failed');
+        throw new Error('Sign in failed - no email received');
+      }
+
+      setUser(googleUser);
+      localStorage.setItem('google_user', JSON.stringify(googleUser));
+      
+      window.dispatchEvent(new CustomEvent('googleAuthChanged', { 
+        detail: { user: googleUser, signedIn: true } 
+      }));
+
+      console.log('[GoogleAuth] Sign-in successful for:', googleUser.email);
+      return googleUser;
+    } catch (error: any) {
+      console.error('[GoogleAuth] Native sign-in error:', error);
+      console.error('[GoogleAuth] Error message:', error?.message);
+      console.error('[GoogleAuth] Error code:', error?.code);
+      console.error('[GoogleAuth] Full error:', JSON.stringify(error, null, 2));
+      throw error;
     }
-
-    const googleUser: GoogleUser = {
-      id: result.profile?.id || '',
-      email: result.profile?.email || '',
-      name: result.profile?.name || '',
-      givenName: result.profile?.givenName || undefined,
-      familyName: result.profile?.familyName || undefined,
-      imageUrl: result.profile?.imageUrl || undefined,
-      authentication: {
-        accessToken: result.accessToken?.token || '',
-        idToken: result.idToken || undefined,
-        refreshToken: undefined,
-      },
-    };
-
-    setUser(googleUser);
-    localStorage.setItem('google_user', JSON.stringify(googleUser));
-    
-    window.dispatchEvent(new CustomEvent('googleAuthChanged', { 
-      detail: { user: googleUser, signedIn: true } 
-    }));
-
-    return googleUser;
   }, []);
 
   const signIn = useCallback(async (): Promise<GoogleUser | null> => {
     try {
       setIsLoading(true);
+      console.log('[GoogleAuth] signIn called, platform:', platform);
       
       if (platform === 'web') {
+        console.log('[GoogleAuth] Using web sign-in');
         return await signInWeb();
       } else {
+        console.log('[GoogleAuth] Using native sign-in');
         return await signInNative();
       }
     } catch (error: any) {
-      console.error('Google sign in error:', error);
+      console.error('[GoogleAuth] Google sign in error:', error);
+      console.error('[GoogleAuth] Error details:', JSON.stringify(error, null, 2));
+      
+      // Check for specific error codes
+      if (error?.code === 10 || error?.message?.includes('10:')) {
+        console.error('[GoogleAuth] ERROR 10: Developer console is not set up correctly!');
+        console.error('[GoogleAuth] Please verify:');
+        console.error('[GoogleAuth] 1. SHA-1 fingerprint from your RELEASE keystore is added to Android OAuth client');
+        console.error('[GoogleAuth] 2. Package name is exactly: nota.npd.com');
+        console.error('[GoogleAuth] 3. Web Client ID is correct in both capacitor.config.ts and strings.xml');
+      }
+      
+      if (error?.code === 16 || error?.message?.includes('16:')) {
+        console.error('[GoogleAuth] ERROR 16: Account reauth failed');
+        console.error('[GoogleAuth] Try clearing app data or signing out of Google on device');
+      }
+      
       if (error?.message?.includes('canceled') || error?.message?.includes('cancelled') || error?.message?.includes('popup_closed')) {
+        console.log('[GoogleAuth] User cancelled sign-in');
         return null;
       }
       throw error;
