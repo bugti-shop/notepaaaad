@@ -163,6 +163,21 @@ export interface VoiceRecording {
   timestamp: Date;
 }
 
+// Sync status for tracking local changes
+export type SyncStatus = 'synced' | 'pending' | 'conflict' | 'error';
+
+// Conflict copy created when versions diverge
+export interface NoteConflictCopy {
+  id: string;
+  noteId: string;
+  content: string;
+  title: string;
+  version: number;
+  deviceId: string;
+  timestamp: Date;
+  resolved: boolean;
+}
+
 export interface Note {
   id: string;
   type: NoteType;
@@ -210,6 +225,15 @@ export interface Note {
   isProtected?: boolean;
   // Meta description for note
   metaDescription?: string;
+  // Sync versioning fields
+  syncVersion: number; // Increments on every edit
+  lastSyncedAt?: Date; // When last successfully synced
+  syncStatus: SyncStatus; // Current sync state
+  isDirty: boolean; // Has unsaved changes since last sync
+  deviceId?: string; // Device that made last edit
+  hasConflict?: boolean; // True if conflict detected
+  conflictCopyId?: string; // Reference to conflict copy if any
+  // Timestamps
   createdAt: Date;
   updatedAt: Date;
 }

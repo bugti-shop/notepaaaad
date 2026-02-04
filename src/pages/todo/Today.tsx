@@ -798,6 +798,9 @@ const Today = () => {
       content: task.description || '',
       voiceRecordings: [],
       images: task.imageUrl ? [task.imageUrl] : [],
+      syncVersion: 1,
+      syncStatus: 'pending' as const,
+      isDirty: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     }));

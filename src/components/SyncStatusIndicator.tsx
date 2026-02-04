@@ -1,4 +1,4 @@
-import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SyncStatusIndicatorProps {
@@ -6,6 +6,9 @@ interface SyncStatusIndicatorProps {
   isSyncing: boolean;
   lastSync: Date | null;
   hasError?: boolean;
+  hasConflicts?: boolean;
+  conflictCount?: number;
+  pendingCount?: number;
   className?: string;
   showLabel?: boolean;
 }
@@ -15,6 +18,9 @@ export const SyncStatusIndicator = ({
   isSyncing,
   lastSync,
   hasError = false,
+  hasConflicts = false,
+  conflictCount = 0,
+  pendingCount = 0,
   className,
   showLabel = true,
 }: SyncStatusIndicatorProps) => {
@@ -22,9 +28,18 @@ export const SyncStatusIndicator = ({
     if (!isOnline) {
       return {
         icon: CloudOff,
-        label: 'Offline',
+        label: pendingCount > 0 ? `Offline (${pendingCount} pending)` : 'Offline',
         color: 'text-muted-foreground',
         bgColor: 'bg-muted',
+      };
+    }
+
+    if (hasConflicts && conflictCount > 0) {
+      return {
+        icon: AlertTriangle,
+        label: `${conflictCount} conflict${conflictCount > 1 ? 's' : ''}`,
+        color: 'text-warning',
+        bgColor: 'bg-warning/10',
       };
     }
 
@@ -40,7 +55,7 @@ export const SyncStatusIndicator = ({
     if (isSyncing) {
       return {
         icon: RefreshCw,
-        label: 'Syncing...',
+        label: pendingCount > 0 ? `Syncing (${pendingCount})...` : 'Syncing...',
         color: 'text-primary',
         bgColor: 'bg-primary/10',
         animate: true,
@@ -108,6 +123,9 @@ export const SyncBadge = ({
   isSyncing,
   lastSync,
   hasError,
+  hasConflicts,
+  conflictCount,
+  pendingCount,
 }: Omit<SyncStatusIndicatorProps, 'className' | 'showLabel'>) => {
   return (
     <SyncStatusIndicator
@@ -115,6 +133,9 @@ export const SyncBadge = ({
       isSyncing={isSyncing}
       lastSync={lastSync}
       hasError={hasError}
+      hasConflicts={hasConflicts}
+      conflictCount={conflictCount}
+      pendingCount={pendingCount}
       showLabel={false}
       className="px-2 py-1"
     />
