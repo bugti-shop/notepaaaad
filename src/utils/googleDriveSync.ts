@@ -14,6 +14,7 @@ const SYNC_FILES = {
   settings: 'nota_settings.json',
   activity: 'nota_activity.json',
   media: 'nota_media_index.json',
+  appLock: 'nota_app_lock.json',
 };
 
 interface SyncMetadata {
@@ -682,68 +683,147 @@ class GoogleDriveSyncManager {
     return { images: [], audio: [] };
   }
 
-  // Full sync of all data - NO DELAYS
-  async syncAll(): Promise<{ success: boolean; errors: string[] }> {
+  // Sync App Lock settings (PIN + Security Questions)
+  async syncAppLock(): Promise<boolean> {
+    const token = await this.ensureValidToken();
+    if (!token) return false;
+
+    try {
+      const { getAppLockSettings, saveAppLockSettings } = await import('@/utils/appLockStorage');
+      
+      const localAppLock = await getAppLockSettings();
+      const localData = await getLocalDataWithMetadata('appLock', async () => localAppLock);
+
+      const remoteFile = await findFile(token, SYNC_FILES.appLock);
+
+      if (remoteFile) {
+        const remoteData = await readFile<SyncableData<any>>(token, remoteFile.id);
+        
+        if (remoteData) {
+          const { winner, data } = resolveConflict(localData, remoteData);
+          
+          if (winner === 'remote') {
+            // Restore App Lock settings from cloud
+            await saveAppLockSettings(data);
+            console.log('App Lock settings restored from cloud');
+          } else {
+            const syncData: SyncableData<any> = {
+              data: localAppLock,
+              metadata: {
+                lastSyncTime: new Date().toISOString(),
+                deviceId: await getDeviceId(),
+                version: 1,
+              },
+            };
+            await writeFile(token, SYNC_FILES.appLock, syncData, remoteFile.id);
+            console.log('App Lock settings synced to cloud');
+          }
+        }
+      } else {
+        // Only create if app lock is enabled
+        if (localAppLock.isEnabled) {
+          const syncData: SyncableData<any> = {
+            data: localAppLock,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.appLock, syncData);
+          console.log('App Lock settings uploaded to cloud (first sync)');
+        }
+      }
+
+      await setSetting('sync_appLock_time', new Date().toISOString());
+      return true;
+    } catch (error) {
+      console.error('App Lock sync error:', error);
+      return false;
+    }
+  }
+
+  // Full sync of all data - NO DELAYS with better error recovery
+  async syncAll(): Promise<{ success: boolean; errors: string[]; partial: boolean }> {
     if (this.syncInProgress) {
-      return { success: false, errors: ['Sync already in progress'] };
+      return { success: false, errors: ['Sync already in progress'], partial: false };
     }
 
     this.syncInProgress = true;
     const errors: string[] = [];
+    const successes: string[] = [];
 
     try {
       // Sync all data types in parallel for speed
       const results = await Promise.allSettled([
-        this.syncNotes(),
-        this.syncTasks(),
-        this.syncFolders(),
-        this.syncSections(),
-        this.syncSettings(),
-        this.syncActivity(),
-        this.syncMedia(),
+        this.syncNotes().catch(e => { console.error('Notes sync error:', e); return false; }),
+        this.syncTasks().catch(e => { console.error('Tasks sync error:', e); return false; }),
+        this.syncFolders().catch(e => { console.error('Folders sync error:', e); return false; }),
+        this.syncSections().catch(e => { console.error('Sections sync error:', e); return false; }),
+        this.syncSettings().catch(e => { console.error('Settings sync error:', e); return false; }),
+        this.syncActivity().catch(e => { console.error('Activity sync error:', e); return false; }),
+        this.syncMedia().catch(e => { console.error('Media sync error:', e); return false; }),
+        this.syncAppLock().catch(e => { console.error('AppLock sync error:', e); return false; }),
       ]);
 
-      const types = ['notes', 'tasks', 'folders', 'sections', 'settings', 'activity', 'media'];
+      const types = ['notes', 'tasks', 'folders', 'sections', 'settings', 'activity', 'media', 'appLock'];
       results.forEach((result, index) => {
         if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value)) {
-          errors.push(`Failed to sync ${types[index]}`);
+          errors.push(types[index]);
+        } else {
+          successes.push(types[index]);
         }
       });
 
       await setSetting('last_full_sync', new Date().toISOString());
       
-      // Dispatch sync complete event
+      const isPartial = errors.length > 0 && successes.length > 0;
+      const isSuccess = errors.length === 0;
+      
+      // Dispatch sync complete event with detailed info
       window.dispatchEvent(new CustomEvent('syncComplete', { 
-        detail: { success: errors.length === 0, errors } 
+        detail: { 
+          success: isSuccess, 
+          partial: isPartial,
+          errors,
+          successes 
+        } 
       }));
 
-      return { success: errors.length === 0, errors };
+      return { success: isSuccess, errors, partial: isPartial };
     } finally {
       this.syncInProgress = false;
     }
   }
 
   // Instant sync - no debounce, syncs immediately
-  async instantSync(dataType: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media'): Promise<boolean> {
+  async instantSync(dataType: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media' | 'appLock'): Promise<boolean> {
     if (!this.accessToken) return false;
 
-    switch (dataType) {
-      case 'notes':
-        return this.syncNotes();
-      case 'tasks':
-        return this.syncTasks();
-      case 'folders':
-        return this.syncFolders();
-      case 'sections':
-        return this.syncSections();
-      case 'settings':
-        return this.syncSettings();
-      case 'activity':
-        return this.syncActivity();
-      case 'media':
-        return this.syncMedia();
-      default:
-        return false;
+    try {
+      switch (dataType) {
+        case 'notes':
+          return await this.syncNotes();
+        case 'tasks':
+          return await this.syncTasks();
+        case 'folders':
+          return await this.syncFolders();
+        case 'sections':
+          return await this.syncSections();
+        case 'settings':
+          return await this.syncSettings();
+        case 'activity':
+          return await this.syncActivity();
+        case 'media':
+          return await this.syncMedia();
+        case 'appLock':
+          return await this.syncAppLock();
+        default:
+          return false;
+      }
+    } catch (error) {
+      console.error(`Instant sync failed for ${dataType}:`, error);
+      return false;
     }
   }
 
@@ -806,6 +886,10 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('mediaUpdated', () => {
     googleDriveSyncManager.instantSync('media');
+  });
+
+  window.addEventListener('appLockUpdated', () => {
+    googleDriveSyncManager.instantSync('appLock');
   });
 
   // Listen for auth changes
