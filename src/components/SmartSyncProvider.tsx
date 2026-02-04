@@ -9,7 +9,9 @@ interface SmartSyncContextType {
   lastSync: Date | null;
   hasError: boolean;
   triggerSync: () => Promise<boolean>;
-  syncNow: (dataType?: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media' | 'all') => Promise<boolean>;
+  syncNow: (dataType?: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media' | 'appLock' | 'all') => Promise<boolean>;
+  lastSyncPartial: boolean;
+  syncErrors: string[];
 }
 
 const SmartSyncContext = createContext<SmartSyncContextType | undefined>(undefined);
@@ -20,6 +22,8 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [lastSyncPartial, setLastSyncPartial] = useState(false);
+  const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const syncLock = useRef(false);
 
   // Perform sync immediately with no delays
@@ -49,12 +53,21 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       if (result.success) {
         setLastSync(new Date());
+        setLastSyncPartial(false);
+        setSyncErrors([]);
         console.log(`[InstantSync] Sync complete (${reason})`);
         window.dispatchEvent(new CustomEvent('syncComplete'));
         return true;
+      } else if (result.partial) {
+        setLastSync(new Date());
+        setLastSyncPartial(true);
+        setSyncErrors(result.errors);
+        console.warn(`[InstantSync] Partial sync (${reason}):`, result.errors);
+        return true;
       } else {
-        console.warn(`[InstantSync] Sync had errors:`, result.errors);
+        console.warn(`[InstantSync] Sync failed:`, result.errors);
         setHasError(true);
+        setSyncErrors(result.errors);
         return false;
       }
     } catch (error) {
@@ -68,7 +81,7 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [isSignedIn, user, refreshToken]);
 
   // Sync specific data type immediately
-  const syncNow = useCallback(async (dataType: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media' | 'all' = 'all'): Promise<boolean> => {
+  const syncNow = useCallback(async (dataType: 'notes' | 'tasks' | 'folders' | 'sections' | 'settings' | 'activity' | 'media' | 'appLock' | 'all' = 'all'): Promise<boolean> => {
     if (!isSignedIn || !user?.authentication?.accessToken) {
       return false;
     }
@@ -108,10 +121,17 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         case 'media':
           success = await googleDriveSyncManager.syncMedia();
           break;
+        case 'appLock':
+          success = await googleDriveSyncManager.syncAppLock();
+          break;
         case 'all':
         default:
           const result = await googleDriveSyncManager.syncAll();
-          success = result.success;
+          success = result.success || result.partial;
+          if (result.partial) {
+            setLastSyncPartial(true);
+            setSyncErrors(result.errors);
+          }
           break;
       }
 
@@ -209,12 +229,18 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       syncNow('media');
     };
 
+    const handleAppLockUpdated = () => {
+      console.log('[InstantSync] App Lock updated - syncing immediately');
+      syncNow('appLock');
+    };
+
     window.addEventListener('notesUpdated', handleNotesUpdated);
     window.addEventListener('tasksUpdated', handleTasksUpdated);
     window.addEventListener('foldersUpdated', handleFoldersUpdated);
     window.addEventListener('sectionsUpdated', handleSectionsUpdated);
     window.addEventListener('settingsUpdated', handleSettingsUpdated);
     window.addEventListener('mediaUpdated', handleMediaUpdated);
+    window.addEventListener('appLockUpdated', handleAppLockUpdated);
 
     return () => {
       window.removeEventListener('notesUpdated', handleNotesUpdated);
@@ -223,6 +249,7 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.removeEventListener('sectionsUpdated', handleSectionsUpdated);
       window.removeEventListener('settingsUpdated', handleSettingsUpdated);
       window.removeEventListener('mediaUpdated', handleMediaUpdated);
+      window.removeEventListener('appLockUpdated', handleAppLockUpdated);
     };
   }, [isSignedIn, syncNow]);
 
@@ -238,7 +265,7 @@ export const SmartSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const triggerSync = useCallback(() => performSync('manual'), [performSync]);
 
   return (
-    <SmartSyncContext.Provider value={{ isOnline, isSyncing, lastSync, hasError, triggerSync, syncNow }}>
+    <SmartSyncContext.Provider value={{ isOnline, isSyncing, lastSync, hasError, triggerSync, syncNow, lastSyncPartial, syncErrors }}>
       {children}
     </SmartSyncContext.Provider>
   );

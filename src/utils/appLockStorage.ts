@@ -52,6 +52,8 @@ export const getAppLockSettings = async (): Promise<AppLockSettings> => {
 // Save lock settings
 export const saveAppLockSettings = async (settings: AppLockSettings): Promise<void> => {
   await setSetting('appLockSettings', settings);
+  // Dispatch event for sync
+  window.dispatchEvent(new CustomEvent('appLockUpdated'));
 };
 
 // Enable app lock with PIN
