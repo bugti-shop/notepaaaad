@@ -129,11 +129,19 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loadNotesFromDB().then(setNotes).catch(console.error);
     };
 
+    // Listen for notes restored from cloud sync
+    const handleNotesRestored = () => {
+      console.log('[NotesContext] Notes restored from cloud, refreshing...');
+      loadNotesFromDB().then(setNotes).catch(console.error);
+    };
+
     window.addEventListener('notesUpdated', handleNotesUpdated);
+    window.addEventListener('notesRestored', handleNotesRestored);
 
     return () => {
       isMounted = false;
       window.removeEventListener('notesUpdated', handleNotesUpdated);
+      window.removeEventListener('notesRestored', handleNotesRestored);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
