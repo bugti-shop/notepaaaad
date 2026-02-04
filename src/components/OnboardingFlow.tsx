@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Confetti from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, CheckSquare, Unlock, Bell, Crown, Loader2, User } from 'lucide-react';
+import { FileText, CheckSquare, Unlock, Bell, Crown, Loader2 } from 'lucide-react';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import googleLogo from '@/assets/google-logo.png';
 import Welcome from '@/components/Welcome';
@@ -1573,7 +1573,7 @@ export default function OnboardingFlow({
           </section>
         )}
 
-        {/* Step 31 - Mandatory Google Sign-In */}
+        {/* Step 31 - Mandatory Google Sign-In - Clean minimal design */}
         {step === 31 && (
           <motion.section 
             key="step31"
@@ -1583,25 +1583,37 @@ export default function OnboardingFlow({
             animate="center"
             exit="exit"
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="mt-8 text-center flex flex-col items-center"
+            className="flex-1 flex flex-col items-center justify-center px-6"
           >
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <User className="w-10 h-10 text-primary" />
+            {/* Decorative blob background */}
+            <div className="relative mb-8">
+              <div className="absolute -inset-12 bg-primary/5 rounded-full blur-3xl" />
+              <div className="absolute top-0 left-0 w-6 h-6 bg-primary/10 rounded-full -translate-x-8 -translate-y-4" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-primary/10 rounded-full translate-x-12 translate-y-2" />
+              
+              {/* User icon circle */}
+              <div className="relative w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center">
+                <svg className="w-14 h-14 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+                </svg>
+              </div>
             </div>
             
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+            <h1 className="text-xl font-semibold text-foreground mb-2 text-center">
               {t('onboarding.signIn.title', 'Sign in to Continue')}
             </h1>
-            <p className="text-muted-foreground text-sm mb-8 max-w-xs">
+            <p className="text-muted-foreground text-sm mb-10 max-w-xs text-center">
               {t('onboarding.signIn.description', 'Sign in with Google to sync your data across devices and unlock all features.')}
             </p>
 
             {signInError && (
-              <div className="mb-4 px-4 py-2 bg-destructive/10 text-destructive rounded-lg text-sm">
+              <div className="mb-4 px-4 py-2 bg-destructive/10 text-destructive rounded-xl text-sm max-w-xs text-center">
                 {signInError}
               </div>
             )}
 
+            {/* Continue with Google Button - Matching reference design */}
             <button
               onClick={async () => {
                 setIsSigningIn(true);
@@ -1610,10 +1622,8 @@ export default function OnboardingFlow({
                   const user = await googleSignIn();
                   
                   if (user) {
-                    // User signed in successfully - now check subscription status
                     setIsCheckingSubscription(true);
                     
-                    // Re-initialize RevenueCat with user ID for proper tracking
                     if (Capacitor.isNativePlatform()) {
                       try {
                         const { Purchases } = await import('@revenuecat/purchases-capacitor');
@@ -1623,20 +1633,16 @@ export default function OnboardingFlow({
                       }
                     }
                     
-                    // Check if user has active subscription
                     const hasSubscription = await checkEntitlement();
                     
                     if (hasSubscription) {
-                      // User has active subscription - bypass paywall
                       const { setSetting } = await import('@/utils/settingsStorage');
                       await setSetting('npd_pro_access', true);
                       onComplete();
                     } else {
-                      // No active subscription - proceed to loading then paywall
                       handleContinue();
                     }
                   } else {
-                    // User cancelled sign-in
                     setSignInError(t('onboarding.signIn.cancelled', 'Sign in was cancelled. Please try again.'));
                   }
                 } catch (error: any) {
@@ -1648,11 +1654,11 @@ export default function OnboardingFlow({
                 }
               }}
               disabled={isSigningIn || isCheckingSubscription}
-              className="w-72 flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-border rounded-xl shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="w-full max-w-xs flex items-center justify-center gap-3 px-6 py-4 bg-[#f0f0f0] hover:bg-[#e8e8e8] rounded-2xl transition-colors disabled:opacity-50"
             >
               {isSigningIn || isCheckingSubscription ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin text-foreground" />
                   <span className="font-medium text-foreground">
                     {isCheckingSubscription 
                       ? t('onboarding.signIn.checkingSubscription', 'Checking subscription...') 
@@ -1669,7 +1675,7 @@ export default function OnboardingFlow({
               )}
             </button>
 
-            <p className="mt-6 text-xs text-muted-foreground max-w-xs">
+            <p className="mt-8 text-xs text-muted-foreground max-w-xs text-center">
               {t('onboarding.signIn.terms', 'By continuing, you agree to our Terms of Service and Privacy Policy.')}
             </p>
           </motion.section>
