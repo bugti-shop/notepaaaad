@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Confetti from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, CheckSquare, Unlock, Bell, Crown, Loader2 } from 'lucide-react';
+import { FileText, CheckSquare, Unlock, Bell, Crown, Loader2, User } from 'lucide-react';
+import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
+import googleLogo from '@/assets/google-logo.png';
 import Welcome from '@/components/Welcome';
 import featureHome from '@/assets/feature-home.png';
 import featureNotes from '@/assets/feature-notes.png';
@@ -50,7 +52,8 @@ export default function OnboardingFlow({
   onComplete
 }: OnboardingFlowProps) {
   const { t } = useTranslation();
-  const { isPro, checkEntitlement } = useRevenueCat();
+  const { isPro, checkEntitlement, initialize: initRevenueCat } = useRevenueCat();
+  const { signIn: googleSignIn, user: googleUser, isSignedIn: isGoogleSignedIn } = useGoogleAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState('');
@@ -72,6 +75,8 @@ export default function OnboardingFlow({
   const [offerings, setOfferings] = useState<any>(null);
   const [isLoadingOfferings, setIsLoadingOfferings] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  const [signInError, setSignInError] = useState('');
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const themeTouchStartX = useRef<number>(0);
@@ -1568,7 +1573,7 @@ export default function OnboardingFlow({
           </section>
         )}
 
-        {/* Step 31 removed - Google sync was here */}
+        {/* Step 31 - Mandatory Google Sign-In */}
         {step === 31 && (
           <motion.section 
             key="step31"
@@ -1581,20 +1586,92 @@ export default function OnboardingFlow({
             className="mt-8 text-center flex flex-col items-center"
           >
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <CheckSquare className="w-10 h-10 text-primary" />
+              <User className="w-10 h-10 text-primary" />
             </div>
             
-            <h1 className="text-2xl font-bold text-foreground mb-2">{t('onboarding.almostDone', 'Almost Done!')}</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              {t('onboarding.signIn.title', 'Sign in to Continue')}
+            </h1>
             <p className="text-muted-foreground text-sm mb-8 max-w-xs">
-              {t('onboarding.almostDoneDesc', 'Your app is ready to use. Let\'s get started!')}
+              {t('onboarding.signIn.description', 'Sign in with Google to sync your data across devices and unlock all features.')}
             </p>
 
+            {signInError && (
+              <div className="mb-4 px-4 py-2 bg-destructive/10 text-destructive rounded-lg text-sm">
+                {signInError}
+              </div>
+            )}
+
             <button
-              onClick={handleContinue}
-              className="w-72 btn-duo"
+              onClick={async () => {
+                setIsSigningIn(true);
+                setSignInError('');
+                try {
+                  const user = await googleSignIn();
+                  
+                  if (user) {
+                    // User signed in successfully - now check subscription status
+                    setIsCheckingSubscription(true);
+                    
+                    // Re-initialize RevenueCat with user ID for proper tracking
+                    if (Capacitor.isNativePlatform()) {
+                      try {
+                        const { Purchases } = await import('@revenuecat/purchases-capacitor');
+                        await Purchases.logIn({ appUserID: user.id });
+                      } catch (e) {
+                        console.log('RevenueCat login with user ID failed:', e);
+                      }
+                    }
+                    
+                    // Check if user has active subscription
+                    const hasSubscription = await checkEntitlement();
+                    
+                    if (hasSubscription) {
+                      // User has active subscription - bypass paywall
+                      const { setSetting } = await import('@/utils/settingsStorage');
+                      await setSetting('npd_pro_access', true);
+                      onComplete();
+                    } else {
+                      // No active subscription - proceed to loading then paywall
+                      handleContinue();
+                    }
+                  } else {
+                    // User cancelled sign-in
+                    setSignInError(t('onboarding.signIn.cancelled', 'Sign in was cancelled. Please try again.'));
+                  }
+                } catch (error: any) {
+                  console.error('Google sign-in error:', error);
+                  setSignInError(t('onboarding.signIn.error', 'Sign in failed. Please try again.'));
+                } finally {
+                  setIsSigningIn(false);
+                  setIsCheckingSubscription(false);
+                }
+              }}
+              disabled={isSigningIn || isCheckingSubscription}
+              className="w-72 flex items-center justify-center gap-3 px-6 py-3 bg-white border-2 border-border rounded-xl shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              {t('onboarding.continue')}
+              {isSigningIn || isCheckingSubscription ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="font-medium text-foreground">
+                    {isCheckingSubscription 
+                      ? t('onboarding.signIn.checkingSubscription', 'Checking subscription...') 
+                      : t('onboarding.signIn.signingIn', 'Signing in...')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <img src={googleLogo} alt="Google" className="w-5 h-5" />
+                  <span className="font-medium text-foreground">
+                    {t('onboarding.signIn.googleButton', 'Continue with Google')}
+                  </span>
+                </>
+              )}
             </button>
+
+            <p className="mt-6 text-xs text-muted-foreground max-w-xs">
+              {t('onboarding.signIn.terms', 'By continuing, you agree to our Terms of Service and Privacy Policy.')}
+            </p>
           </motion.section>
         )}
 
