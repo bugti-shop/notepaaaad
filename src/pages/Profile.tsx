@@ -156,9 +156,11 @@ export default function Profile() {
           >
             {/* Decorative blob */}
             <div className="relative mb-8">
-              <div className="absolute -inset-8 bg-primary/5 rounded-full blur-2xl" />
-              <div className="relative w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-                <svg className="w-12 h-12 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <div className="absolute -inset-12 bg-primary/5 rounded-full blur-3xl" />
+              <div className="absolute top-0 left-0 w-6 h-6 bg-primary/10 rounded-full -translate-x-10 -translate-y-6" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-primary/10 rounded-full translate-x-14 translate-y-4" />
+              <div className="relative w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center">
+                <svg className="w-14 h-14 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
                 </svg>
@@ -172,11 +174,11 @@ export default function Profile() {
               {t('profile.signInSubtitle', 'Keep your notes and tasks synced across all your devices.')}
             </p>
 
-            {/* Google Sign In Button - Matching reference design */}
+            {/* Google Sign In Button - Light gray like reference */}
             <button
               onClick={handleSignIn}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-muted hover:bg-muted/80 rounded-2xl transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-secondary/50 hover:bg-secondary/70 rounded-2xl transition-colors disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin text-foreground" />
@@ -190,29 +192,34 @@ export default function Profile() {
           </motion.div>
         )}
 
-        {/* Signed In - Profile View */}
+        {/* Signed In - Clean minimal design matching reference */}
         {isSignedIn && user && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-sm space-y-6"
           >
-            {/* Profile Info */}
-            <div className="flex flex-col items-center">
-              <Avatar className="w-24 h-24 mb-4 ring-4 ring-background shadow-lg">
-                <AvatarImage src={user.imageUrl} alt={user.name} />
-                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                  {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
+            {/* Profile Info - Centered and clean */}
+            <div className="flex flex-col items-center py-4">
+              <div className="relative mb-4">
+                <div className="absolute -inset-4 bg-primary/5 rounded-full blur-xl" />
+                <Avatar className="relative w-24 h-24 ring-4 ring-background shadow-lg">
+                  <AvatarImage src={user.imageUrl} alt={user.name} />
+                  <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                    {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               <h2 className="text-xl font-semibold text-foreground">{user.name}</h2>
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </div>
 
-            {/* Sync Section */}
-            <div className="bg-card rounded-2xl p-5 shadow-sm space-y-4 border">
+            {/* Sync Card - Clean design */}
+            <div className="bg-secondary/30 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-3">
-                <Cloud className="h-5 w-5 text-primary" />
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Cloud className="h-5 w-5 text-primary" />
+                </div>
                 <div>
                   <h3 className="font-medium text-foreground">{t('profile.cloudSync')}</h3>
                   <p className="text-xs text-muted-foreground">{t('profile.cloudSyncEnabled')}</p>
@@ -220,7 +227,7 @@ export default function Profile() {
               </div>
 
               {/* Sync Status */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-background/50">
                 <div className="flex items-center gap-2">
                   {effectiveSyncError ? (
                     <AlertCircle className="h-4 w-4 text-destructive" />
@@ -257,34 +264,31 @@ export default function Profile() {
               </Button>
 
               {/* What syncs */}
-              <div className="pt-2">
-                <p className="text-sm font-medium text-muted-foreground mb-2">{t('profile.whatSyncs')}</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-primary" />
-                    {t('profile.syncNotes')}
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-primary" />
-                    {t('profile.syncTasks')}
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-primary" />
-                    {t('profile.syncFolders')}
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-primary" />
-                    {t('profile.syncSettings', 'Settings')}
-                  </li>
-                </ul>
+              <div className="pt-2 grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span>{t('profile.syncNotes')}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span>{t('profile.syncTasks')}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span>{t('profile.syncFolders')}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span>{t('profile.syncSettings', 'Settings')}</span>
+                </div>
               </div>
             </div>
 
-            {/* Sign Out Button */}
+            {/* Sign Out Button - Light gray matching reference */}
             <button
               onClick={handleSignOut}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-card hover:bg-destructive/5 rounded-2xl transition-colors text-destructive shadow-sm border"
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-secondary/30 hover:bg-destructive/10 rounded-2xl transition-colors text-destructive"
             >
               <LogOut className="h-5 w-5" />
               <span className="font-medium">{t('profile.signOut')}</span>

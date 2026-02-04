@@ -1654,7 +1654,7 @@ export default function OnboardingFlow({
                 }
               }}
               disabled={isSigningIn || isCheckingSubscription}
-              className="w-full max-w-xs flex items-center justify-center gap-3 px-6 py-4 bg-[#f0f0f0] hover:bg-[#e8e8e8] rounded-2xl transition-colors disabled:opacity-50"
+              className="w-full max-w-xs flex items-center justify-center gap-3 px-6 py-4 bg-secondary/50 hover:bg-secondary/70 rounded-2xl transition-colors disabled:opacity-50"
             >
               {isSigningIn || isCheckingSubscription ? (
                 <>
