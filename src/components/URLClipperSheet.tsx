@@ -158,6 +158,9 @@ const URLClipperSheet = ({ isOpen, onClose, onSave }: URLClipperSheetProps) => {
       content: editableContent.substring(0, 50000),
       voiceRecordings: [],
       images: fetchedData?.image ? [fetchedData.image] : undefined,
+      syncVersion: 1,
+      syncStatus: 'pending' as const,
+      isDirty: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

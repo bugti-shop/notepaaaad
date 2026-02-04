@@ -1,6 +1,18 @@
-import { Note } from '@/types/note';
+import { Note, SyncStatus } from '@/types/note';
 import { loadNotesFromDB, saveNotesToDB } from '@/utils/noteStorage';
 import { getSetting, setSetting } from '@/utils/settingsStorage';
+import { 
+  mergeNotesWithConflictDetection, 
+  addToSyncQueue, 
+  removeFromSyncQueue,
+  markSyncFailed,
+  getSyncState,
+  getLastSyncCursor,
+  setLastSyncCursor,
+  cleanupSyncQueue,
+  cleanupResolvedConflicts,
+} from '@/utils/syncQueue';
+import { migrateNoteToSyncable, getDeviceId } from '@/utils/noteDefaults';
 
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
@@ -15,12 +27,14 @@ const SYNC_FILES = {
   activity: 'nota_activity.json',
   media: 'nota_media_index.json',
   appLock: 'nota_app_lock.json',
+  manifest: 'nota_sync_manifest.json', // New: tracks sync state
 };
 
 interface SyncMetadata {
   lastSyncTime: string;
   deviceId: string;
   version: number;
+  cursor?: string; // For incremental sync
 }
 
 interface DriveFile {
@@ -28,16 +42,6 @@ interface DriveFile {
   name: string;
   modifiedTime: string;
 }
-
-// Generate unique device ID
-const getDeviceId = async (): Promise<string> => {
-  let deviceId = await getSetting<string>('device_id', '');
-  if (!deviceId) {
-    deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await setSetting('device_id', deviceId);
-  }
-  return deviceId;
-};
 
 // Make authenticated request to Google Drive API
 const driveRequest = async (
@@ -377,62 +381,118 @@ class GoogleDriveSyncManager {
     return null;
   }
 
-  // Sync notes - MERGE mode (never overwrites, combines both)
+  // Sync notes - CONFLICT-SAFE mode with version tracking
   async syncNotes(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
 
     try {
-      // Get local notes
-      const localNotes = await loadNotesFromDB();
+      // Get local notes and migrate them to include sync fields
+      const rawLocalNotes = await loadNotesFromDB();
+      const localNotes: Note[] = rawLocalNotes.map(migrateNoteToSyncable);
 
       // Find remote file
       const remoteFile = await findFile(token, SYNC_FILES.notes);
 
       if (remoteFile) {
-        // Remote exists - MERGE both datasets
+        // Remote exists - use conflict-safe merge
         const remoteData = await readFile<SyncableData<Note[]>>(token, remoteFile.id);
         
         if (remoteData && remoteData.data) {
-          // Merge local and remote notes (keeps all unique, local priority for conflicts)
-          const mergedNotes = mergeNotes(localNotes, remoteData.data);
+          // Migrate remote notes too
+          const remoteNotes = remoteData.data.map(migrateNoteToSyncable);
+          
+          // Use conflict detection and resolution
+          const { merged, conflicts } = await mergeNotesWithConflictDetection(localNotes, remoteNotes);
+          
+          // Mark all merged notes as synced (except those with conflicts)
+          const syncedNotes = merged.map(note => ({
+            ...note,
+            syncStatus: note.hasConflict ? 'conflict' as SyncStatus : 'synced' as SyncStatus,
+            isDirty: note.hasConflict ? note.isDirty : false,
+            lastSyncedAt: note.hasConflict ? note.lastSyncedAt : new Date(),
+          }));
           
           // Save merged data locally
-          await saveNotesToDB(mergedNotes);
-          console.log(`Notes merged: ${localNotes.length} local + ${remoteData.data.length} remote = ${mergedNotes.length} total`);
+          await saveNotesToDB(syncedNotes);
+          
+          const conflictCount = conflicts.length;
+          console.log(`[Sync] Notes merged: ${localNotes.length} local + ${remoteNotes.length} remote = ${syncedNotes.length} total${conflictCount > 0 ? ` (${conflictCount} conflicts)` : ''}`);
           
           // Upload merged data to cloud
           const syncData: SyncableData<Note[]> = {
-            data: mergedNotes,
+            data: syncedNotes,
             metadata: {
               lastSyncTime: new Date().toISOString(),
               deviceId: await getDeviceId(),
-              version: 1,
+              version: (remoteData.metadata?.version || 0) + 1,
+              cursor: Date.now().toString(),
             },
           };
           await writeFile(token, SYNC_FILES.notes, syncData, remoteFile.id);
           
-          // Dispatch event to update UI
+          // Update sync cursor
+          await setLastSyncCursor(Date.now().toString());
+          
+          // Clear completed items from sync queue
+          for (const note of syncedNotes) {
+            if (!note.hasConflict) {
+              await removeFromSyncQueue(note.id);
+            }
+          }
+          
+          // Dispatch events
           window.dispatchEvent(new CustomEvent('notesRestored'));
+          if (conflictCount > 0) {
+            window.dispatchEvent(new CustomEvent('syncConflicts', { detail: { count: conflictCount } }));
+          }
         }
       } else {
-        // No remote file, create it with local data
+        // No remote file, create it with local data (mark all as synced)
+        const syncedNotes = localNotes.map(note => ({
+          ...note,
+          syncStatus: 'synced' as SyncStatus,
+          isDirty: false,
+          lastSyncedAt: new Date(),
+        }));
+        
         const syncData: SyncableData<Note[]> = {
-          data: localNotes,
+          data: syncedNotes,
           metadata: {
             lastSyncTime: new Date().toISOString(),
             deviceId: await getDeviceId(),
             version: 1,
+            cursor: Date.now().toString(),
           },
         };
         await writeFile(token, SYNC_FILES.notes, syncData);
-        console.log('Notes uploaded to cloud (first sync)');
+        
+        // Save synced notes locally
+        await saveNotesToDB(syncedNotes);
+        
+        // Update sync cursor
+        await setLastSyncCursor(Date.now().toString());
+        
+        console.log('[Sync] Notes uploaded to cloud (first sync)');
       }
 
       await setSetting('sync_notes_time', new Date().toISOString());
+      
+      // Cleanup old resolved conflicts
+      await cleanupResolvedConflicts();
+      
       return true;
-    } catch (error) {
-      console.error('Notes sync error:', error);
+    } catch (error: any) {
+      console.error('[Sync] Notes sync error:', error);
+      
+      // Mark dirty notes as failed in queue
+      const rawLocalNotes = await loadNotesFromDB();
+      for (const note of rawLocalNotes) {
+        if ((note as any).isDirty) {
+          await markSyncFailed(note.id, error?.message || 'Unknown error');
+        }
+      }
+      
       return false;
     }
   }

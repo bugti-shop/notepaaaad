@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Note } from '@/types/note';
+import { Note, SyncStatus } from '@/types/note';
 import { loadNotesFromDB, saveNotesToDB, saveNoteToDBSingle, deleteNoteFromDB, migrateNotesToIndexedDB } from '@/utils/noteStorage';
 import { getTextPreviewFromHtml } from '@/utils/contentPreview';
+import { addToSyncQueue } from '@/utils/syncQueue';
+import { migrateNoteToSyncable, getDeviceIdSync } from '@/utils/noteDefaults';
 
 // Lightweight note metadata for instant navigation
 export interface NoteMeta {
@@ -173,19 +175,34 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [notes, isInitialized]);
 
   const saveNote = useCallback(async (note: Note) => {
+    // Check if note already exists to determine action type
+    let isUpdate = false;
+    
+    // Ensure note has sync fields
+    const noteWithSync: Note = {
+      ...note,
+      syncVersion: (note.syncVersion ?? 0) + 1,
+      syncStatus: 'pending' as SyncStatus,
+      isDirty: true,
+      deviceId: note.deviceId ?? getDeviceIdSync(),
+    };
+    
     setNotes(prev => {
-      const existing = prev.findIndex(n => n.id === note.id);
-      if (existing >= 0) {
+      const existingIdx = prev.findIndex(n => n.id === noteWithSync.id);
+      isUpdate = existingIdx >= 0;
+      if (existingIdx >= 0) {
         const updated = [...prev];
-        updated[existing] = note;
+        updated[existingIdx] = noteWithSync;
         return updated;
       }
-      return [note, ...prev];
+      return [noteWithSync, ...prev];
     });
 
     // Also save immediately for safety
     try {
-      await saveNoteToDBSingle(note);
+      await saveNoteToDBSingle(noteWithSync);
+      // Add to sync queue for background sync
+      await addToSyncQueue(noteWithSync.id, isUpdate ? 'update' : 'create');
     } catch (error) {
       console.error('[NotesContext] Error saving single note:', error);
     }
@@ -195,6 +212,8 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNotes(prev => prev.filter(n => n.id !== noteId));
     try {
       await deleteNoteFromDB(noteId);
+      // Add delete action to sync queue
+      await addToSyncQueue(noteId, 'delete');
     } catch (error) {
       console.error('[NotesContext] Error deleting note:', error);
     }

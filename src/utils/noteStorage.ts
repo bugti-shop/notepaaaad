@@ -55,10 +55,16 @@ export const loadNotesFromDB = async (): Promise<Note[]> => {
           archivedAt: note.archivedAt ? new Date(note.archivedAt) : undefined,
           deletedAt: note.deletedAt ? new Date(note.deletedAt) : undefined,
           reminderTime: note.reminderTime ? new Date(note.reminderTime) : undefined,
+          lastSyncedAt: note.lastSyncedAt ? new Date(note.lastSyncedAt) : undefined,
           voiceRecordings: note.voiceRecordings?.map((r: any) => ({
             ...r,
             timestamp: new Date(r.timestamp),
           })) || [],
+          // Ensure sync fields exist (migration for existing notes)
+          syncVersion: note.syncVersion ?? 1,
+          syncStatus: note.syncStatus ?? 'synced',
+          isDirty: note.isDirty ?? false,
+          deviceId: note.deviceId ?? undefined,
         }));
         resolve(notes);
       };
@@ -93,10 +99,16 @@ export const saveNotesToDB = async (notes: Note[]): Promise<void> => {
             archivedAt: note.archivedAt?.toISOString(),
             deletedAt: note.deletedAt?.toISOString(),
             reminderTime: note.reminderTime?.toISOString(),
+            lastSyncedAt: note.lastSyncedAt?.toISOString(),
             voiceRecordings: note.voiceRecordings?.map(r => ({
               ...r,
               timestamp: r.timestamp.toISOString(),
             })) || [],
+            // Ensure sync fields are saved
+            syncVersion: note.syncVersion ?? 1,
+            syncStatus: note.syncStatus ?? 'synced',
+            isDirty: note.isDirty ?? false,
+            deviceId: note.deviceId,
           });
         });
       };
@@ -125,10 +137,16 @@ export const saveNoteToDBSingle = async (note: Note): Promise<void> => {
         archivedAt: note.archivedAt?.toISOString(),
         deletedAt: note.deletedAt?.toISOString(),
         reminderTime: note.reminderTime?.toISOString(),
+        lastSyncedAt: note.lastSyncedAt?.toISOString(),
         voiceRecordings: note.voiceRecordings?.map(r => ({
           ...r,
           timestamp: r.timestamp.toISOString(),
         })) || [],
+        // Ensure sync fields are saved
+        syncVersion: note.syncVersion ?? 1,
+        syncStatus: note.syncStatus ?? 'pending',
+        isDirty: note.isDirty ?? true,
+        deviceId: note.deviceId,
       });
 
       transaction.oncomplete = () => resolve();

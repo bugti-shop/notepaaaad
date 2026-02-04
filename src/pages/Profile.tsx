@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, LogOut, Cloud, CheckCircle, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, RefreshCw, LogOut, Cloud, CheckCircle, Loader2, AlertCircle, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BottomNavigation } from '@/components/BottomNavigation';
@@ -9,8 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
 import { useSmartSync } from '@/components/SmartSyncProvider';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
+import { ConflictResolutionSheet } from '@/components/ConflictResolutionSheet';
 import { useToast } from '@/hooks/use-toast';
 import { getSetting } from '@/utils/settingsStorage';
+import { loadConflictCopies, getSyncState } from '@/utils/syncQueue';
 import { motion } from 'framer-motion';
 import googleLogo from '@/assets/google-logo.png';
 
@@ -23,6 +25,9 @@ export default function Profile() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastDashboard, setLastDashboard] = useState<'notes' | 'todo'>('notes');
+  const [conflictCount, setConflictCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showConflicts, setShowConflicts] = useState(false);
 
   // Determine which dashboard the user came from
   useEffect(() => {
@@ -37,6 +42,42 @@ export default function Profile() {
     };
     checkLastDashboard();
   }, [location.state]);
+
+  // Load sync state (conflicts and pending items)
+  useEffect(() => {
+    const loadSyncInfo = async () => {
+      try {
+        const conflicts = await loadConflictCopies();
+        const unresolvedConflicts = conflicts.filter(c => !c.resolved);
+        setConflictCount(unresolvedConflicts.length);
+        
+        const syncState = await getSyncState();
+        setPendingCount(syncState.pendingCount);
+      } catch (error) {
+        console.error('Error loading sync info:', error);
+      }
+    };
+    
+    loadSyncInfo();
+    
+    // Listen for sync events
+    const handleSyncComplete = () => loadSyncInfo();
+    const handleConflicts = (e: any) => {
+      if (e.detail?.count) {
+        setConflictCount(prev => prev + e.detail.count);
+      }
+    };
+    
+    window.addEventListener('syncComplete', handleSyncComplete);
+    window.addEventListener('syncConflicts', handleConflicts);
+    window.addEventListener('notesRestored', handleSyncComplete);
+    
+    return () => {
+      window.removeEventListener('syncComplete', handleSyncComplete);
+      window.removeEventListener('syncConflicts', handleConflicts);
+      window.removeEventListener('notesRestored', handleSyncComplete);
+    };
+  }, []);
 
   const handleSignIn = async () => {
     try {
@@ -253,6 +294,32 @@ export default function Profile() {
                 </div>
               )}
 
+              {/* Conflict Warning */}
+              {conflictCount > 0 && (
+                <button
+                  onClick={() => setShowConflicts(true)}
+                  className="w-full p-3 rounded-xl bg-warning/10 flex items-center justify-between hover:bg-warning/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <span className="text-sm text-warning font-medium">
+                      {conflictCount} sync conflict{conflictCount > 1 ? 's' : ''} detected
+                    </span>
+                  </div>
+                  <span className="text-xs text-warning">Resolve →</span>
+                </button>
+              )}
+
+              {/* Pending Items Indicator */}
+              {pendingCount > 0 && !effectiveIsSyncing && (
+                <div className="p-3 rounded-xl bg-primary/5 flex items-center gap-2">
+                  <Cloud className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    {pendingCount} item{pendingCount > 1 ? 's' : ''} waiting to sync
+                  </span>
+                </div>
+              )}
+
               {/* Sync Button */}
               <Button
                 onClick={handleSyncNow}
@@ -298,6 +365,12 @@ export default function Profile() {
       </div>
 
       {lastDashboard === 'todo' ? <TodoBottomNavigation /> : <BottomNavigation />}
+      
+      {/* Conflict Resolution Sheet */}
+      <ConflictResolutionSheet
+        open={showConflicts}
+        onOpenChange={setShowConflicts}
+      />
     </div>
   );
 }

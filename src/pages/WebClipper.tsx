@@ -102,6 +102,9 @@ const WebClipper = () => {
         title: title,
         content: noteContent,
         voiceRecordings: [],
+        syncVersion: 1,
+        syncStatus: 'pending' as const,
+        isDirty: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

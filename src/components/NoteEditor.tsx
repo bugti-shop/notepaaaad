@@ -421,6 +421,11 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       notificationId,
       notificationIds,
       metaDescription: metaDescription || undefined,
+      // Sync fields - preserve existing or create new
+      syncVersion: note?.syncVersion ? note.syncVersion + 1 : 1,
+      syncStatus: 'pending' as const,
+      isDirty: true,
+      deviceId: note?.deviceId,
       createdAt: note?.createdAt || combinedDateTime,
       updatedAt: new Date(),
     };
@@ -627,6 +632,9 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       codeContent,
       codeLanguage,
       voiceRecordings,
+      syncVersion: note?.syncVersion ?? 1,
+      syncStatus: 'synced' as const,
+      isDirty: false,
       createdAt: note?.createdAt || new Date(),
       updatedAt: new Date(),
     };
