@@ -192,18 +192,147 @@ const getLocalDataWithMetadata = async <T>(
   };
 };
 
-// Conflict resolution: newer timestamp wins
+// Conflict resolution: MERGE - never overwrite, combine both datasets
 const resolveConflict = <T>(
   local: SyncableData<T>,
   remote: SyncableData<T>
-): { winner: 'local' | 'remote'; data: T } => {
-  const localTime = new Date(local.metadata.lastSyncTime).getTime();
-  const remoteTime = new Date(remote.metadata.lastSyncTime).getTime();
+): { winner: 'local' | 'remote' | 'merge'; data: T; localData?: T; remoteData?: T } => {
+  // Always return merge so we can combine data instead of overwriting
+  return { winner: 'merge', data: local.data, localData: local.data, remoteData: remote.data };
+};
 
-  if (localTime > remoteTime) {
-    return { winner: 'local', data: local.data };
+// Helper to merge arrays by ID (keeps all unique items, local takes priority for conflicts)
+const mergeArraysById = <T extends { id: string }>(local: T[], remote: T[]): T[] => {
+  const merged = new Map<string, T>();
+  
+  // Add remote items first
+  for (const item of remote) {
+    merged.set(item.id, item);
   }
-  return { winner: 'remote', data: remote.data };
+  
+  // Then add local items (overwrites remote if same ID exists - local is newer)
+  for (const item of local) {
+    merged.set(item.id, item);
+  }
+  
+  return Array.from(merged.values());
+};
+
+// Helper to merge notes - preserves both local and remote, local takes priority for duplicates
+const mergeNotes = (local: Note[], remote: Note[]): Note[] => {
+  const merged = new Map<string, Note>();
+  
+  // Add remote notes first
+  for (const note of remote) {
+    merged.set(note.id, {
+      ...note,
+      createdAt: new Date(note.createdAt),
+      updatedAt: new Date(note.updatedAt),
+      voiceRecordings: note.voiceRecordings?.map(r => ({
+        ...r,
+        timestamp: new Date(r.timestamp),
+      })) || [],
+    });
+  }
+  
+  // Add local notes (overwrites remote if same ID but keeps unique remote notes)
+  for (const note of local) {
+    const existing = merged.get(note.id);
+    if (existing) {
+      // If local is newer, use local; otherwise keep existing
+      const localTime = new Date(note.updatedAt).getTime();
+      const remoteTime = new Date(existing.updatedAt).getTime();
+      if (localTime >= remoteTime) {
+        merged.set(note.id, note);
+      }
+    } else {
+      merged.set(note.id, note);
+    }
+  }
+  
+  return Array.from(merged.values());
+};
+
+// Helper to merge tasks - preserves both local and remote
+const mergeTasks = (local: any[], remote: any[]): any[] => {
+  const merged = new Map<string, any>();
+  
+  // Add remote tasks first
+  for (const task of remote) {
+    merged.set(task.id, task);
+  }
+  
+  // Add local tasks (local takes priority for same ID)
+  for (const task of local) {
+    const existing = merged.get(task.id);
+    if (existing) {
+      // Compare by updatedAt or completedAt
+      const localTime = task.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+      const remoteTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      if (localTime >= remoteTime) {
+        merged.set(task.id, task);
+      }
+    } else {
+      merged.set(task.id, task);
+    }
+  }
+  
+  return Array.from(merged.values());
+};
+
+// Helper to merge folders
+const mergeFolders = (local: any[], remote: any[]): any[] => {
+  const merged = new Map<string, any>();
+  
+  for (const folder of remote) {
+    merged.set(folder.id, folder);
+  }
+  
+  for (const folder of local) {
+    merged.set(folder.id, folder);
+  }
+  
+  return Array.from(merged.values());
+};
+
+// Helper to merge sections
+const mergeSections = (local: any[], remote: any[]): any[] => {
+  const merged = new Map<string, any>();
+  
+  for (const section of remote) {
+    merged.set(section.id, section);
+  }
+  
+  for (const section of local) {
+    merged.set(section.id, section);
+  }
+  
+  return Array.from(merged.values());
+};
+
+// Helper to merge settings (local takes priority)
+const mergeSettings = (local: Record<string, any>, remote: Record<string, any>): Record<string, any> => {
+  return { ...remote, ...local };
+};
+
+// Helper to merge activity logs (keeps all unique entries)
+const mergeActivityLogs = (local: any[], remote: any[]): any[] => {
+  const merged = new Map<string, any>();
+  
+  for (const entry of remote) {
+    merged.set(entry.id, entry);
+  }
+  
+  for (const entry of local) {
+    merged.set(entry.id, entry);
+  }
+  
+  // Sort by timestamp descending
+  return Array.from(merged.values()).sort((a, b) => {
+    const timeA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const timeB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
 };
 
 // Main sync class
@@ -246,7 +375,7 @@ class GoogleDriveSyncManager {
     return null;
   }
 
-  // Sync notes
+  // Sync notes - MERGE mode (never overwrites, combines both)
   async syncNotes(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
@@ -254,47 +383,38 @@ class GoogleDriveSyncManager {
     try {
       // Get local notes
       const localNotes = await loadNotesFromDB();
-      const localData = await getLocalDataWithMetadata('notes', async () => localNotes);
 
       // Find remote file
       const remoteFile = await findFile(token, SYNC_FILES.notes);
 
       if (remoteFile) {
-        // Remote exists, check for conflicts
+        // Remote exists - MERGE both datasets
         const remoteData = await readFile<SyncableData<Note[]>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Merge local and remote notes (keeps all unique, local priority for conflicts)
+          const mergedNotes = mergeNotes(localNotes, remoteData.data);
           
-          if (winner === 'remote') {
-            // Update local with remote data
-            const restoredNotes = data.map(note => ({
-              ...note,
-              createdAt: new Date(note.createdAt),
-              updatedAt: new Date(note.updatedAt),
-              voiceRecordings: note.voiceRecordings?.map(r => ({
-                ...r,
-                timestamp: new Date(r.timestamp),
-              })) || [],
-            }));
-            await saveNotesToDB(restoredNotes);
-            console.log('Notes restored from cloud');
-          } else {
-            // Update remote with local data
-            const syncData: SyncableData<Note[]> = {
-              data: localNotes,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.notes, syncData, remoteFile.id);
-            console.log('Notes synced to cloud');
-          }
+          // Save merged data locally
+          await saveNotesToDB(mergedNotes);
+          console.log(`Notes merged: ${localNotes.length} local + ${remoteData.data.length} remote = ${mergedNotes.length} total`);
+          
+          // Upload merged data to cloud
+          const syncData: SyncableData<Note[]> = {
+            data: mergedNotes,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.notes, syncData, remoteFile.id);
+          
+          // Dispatch event to update UI
+          window.dispatchEvent(new CustomEvent('notesRestored'));
         }
       } else {
-        // No remote file, create it
+        // No remote file, create it with local data
         const syncData: SyncableData<Note[]> = {
           data: localNotes,
           metadata: {
@@ -315,7 +435,7 @@ class GoogleDriveSyncManager {
     }
   }
 
-  // Sync tasks
+  // Sync tasks - MERGE mode (never overwrites, combines both)
   async syncTasks(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
@@ -324,31 +444,33 @@ class GoogleDriveSyncManager {
       const { loadTasksFromDB, saveTasksToDB } = await import('@/utils/taskStorage');
       
       const localTasks = await loadTasksFromDB();
-      const localData = await getLocalDataWithMetadata('tasks', async () => localTasks);
 
       const remoteFile = await findFile(token, SYNC_FILES.tasks);
 
       if (remoteFile) {
         const remoteData = await readFile<SyncableData<any[]>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Merge local and remote tasks
+          const mergedTasks = mergeTasks(localTasks, remoteData.data);
           
-          if (winner === 'remote') {
-            await saveTasksToDB(data);
-            console.log('Tasks restored from cloud');
-          } else {
-            const syncData: SyncableData<any[]> = {
-              data: localTasks,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.tasks, syncData, remoteFile.id);
-            console.log('Tasks synced to cloud');
-          }
+          // Save merged data locally
+          await saveTasksToDB(mergedTasks);
+          console.log(`Tasks merged: ${localTasks.length} local + ${remoteData.data.length} remote = ${mergedTasks.length} total`);
+          
+          // Upload merged data to cloud
+          const syncData: SyncableData<any[]> = {
+            data: mergedTasks,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.tasks, syncData, remoteFile.id);
+          
+          // Dispatch event to update UI
+          window.dispatchEvent(new CustomEvent('tasksRestored'));
         }
       } else {
         const syncData: SyncableData<any[]> = {
@@ -371,7 +493,7 @@ class GoogleDriveSyncManager {
     }
   }
 
-  // Sync folders
+  // Sync folders - MERGE mode
   async syncFolders(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
@@ -380,31 +502,30 @@ class GoogleDriveSyncManager {
       const { loadFolders, saveFolders } = await import('@/utils/folderStorage');
       
       const localFolders = await loadFolders();
-      const localData = await getLocalDataWithMetadata('folders', async () => localFolders);
 
       const remoteFile = await findFile(token, SYNC_FILES.folders);
 
       if (remoteFile) {
         const remoteData = await readFile<SyncableData<any[]>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Merge folders
+          const mergedFolders = mergeFolders(localFolders, remoteData.data);
           
-          if (winner === 'remote') {
-            await saveFolders(data);
-            console.log('Folders restored from cloud');
-          } else {
-            const syncData: SyncableData<any[]> = {
-              data: localFolders,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.folders, syncData, remoteFile.id);
-            console.log('Folders synced to cloud');
-          }
+          await saveFolders(mergedFolders);
+          console.log(`Folders merged: ${localFolders.length} local + ${remoteData.data.length} remote = ${mergedFolders.length} total`);
+          
+          const syncData: SyncableData<any[]> = {
+            data: mergedFolders,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.folders, syncData, remoteFile.id);
+          
+          window.dispatchEvent(new CustomEvent('foldersRestored'));
         }
       } else {
         const syncData: SyncableData<any[]> = {
@@ -427,38 +548,37 @@ class GoogleDriveSyncManager {
     }
   }
 
-  // Sync sections (task sections)
+  // Sync sections - MERGE mode
   async syncSections(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
 
     try {
       const sections = await getSetting<any[]>('todo_sections', []);
-      const localData = await getLocalDataWithMetadata('sections', async () => sections);
 
       const remoteFile = await findFile(token, SYNC_FILES.sections);
 
       if (remoteFile) {
         const remoteData = await readFile<SyncableData<any[]>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Merge sections
+          const mergedSections = mergeSections(sections, remoteData.data);
           
-          if (winner === 'remote') {
-            await setSetting('todo_sections', data);
-            console.log('Sections restored from cloud');
-          } else {
-            const syncData: SyncableData<any[]> = {
-              data: sections,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.sections, syncData, remoteFile.id);
-            console.log('Sections synced to cloud');
-          }
+          await setSetting('todo_sections', mergedSections);
+          console.log(`Sections merged: ${sections.length} local + ${remoteData.data.length} remote = ${mergedSections.length} total`);
+          
+          const syncData: SyncableData<any[]> = {
+            data: mergedSections,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.sections, syncData, remoteFile.id);
+          
+          window.dispatchEvent(new CustomEvent('sectionsRestored'));
         }
       } else {
         const syncData: SyncableData<any[]> = {
@@ -481,7 +601,7 @@ class GoogleDriveSyncManager {
     }
   }
 
-  // Sync settings
+  // Sync settings - MERGE mode (local takes priority)
   async syncSettings(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
@@ -498,35 +618,34 @@ class GoogleDriveSyncManager {
           !key.startsWith('google_')
         )
       );
-      
-      const localData = await getLocalDataWithMetadata('settings', async () => syncableSettings);
 
       const remoteFile = await findFile(token, SYNC_FILES.settings);
 
       if (remoteFile) {
         const remoteData = await readFile<SyncableData<Record<string, any>>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Merge settings (local takes priority)
+          const mergedSettings = mergeSettings(syncableSettings, remoteData.data);
           
-          if (winner === 'remote') {
-            // Restore each setting
-            for (const [key, value] of Object.entries(data)) {
+          // Save merged settings locally
+          for (const [key, value] of Object.entries(mergedSettings)) {
+            if (!syncableSettings.hasOwnProperty(key)) {
+              // Only restore settings that don't exist locally
               await setSetting(key, value);
             }
-            console.log('Settings restored from cloud');
-          } else {
-            const syncData: SyncableData<Record<string, any>> = {
-              data: syncableSettings,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.settings, syncData, remoteFile.id);
-            console.log('Settings synced to cloud');
           }
+          console.log('Settings merged from cloud (local priority)');
+          
+          const syncData: SyncableData<Record<string, any>> = {
+            data: mergedSettings,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.settings, syncData, remoteFile.id);
         }
       } else {
         const syncData: SyncableData<Record<string, any>> = {
@@ -549,7 +668,7 @@ class GoogleDriveSyncManager {
     }
   }
 
-  // Sync activity log
+  // Sync activity log - ALWAYS MERGE (keeps all unique activities)
   async syncActivity(): Promise<boolean> {
     const token = await this.ensureValidToken();
     if (!token) return false;
@@ -557,39 +676,32 @@ class GoogleDriveSyncManager {
     try {
       const { getActivities } = await import('@/utils/activityLogger');
       const activityLog = await getActivities();
-      const localData = await getLocalDataWithMetadata('activity', async () => activityLog);
 
       const remoteFile = await findFile(token, SYNC_FILES.activity);
 
       if (remoteFile) {
         const remoteData = await readFile<SyncableData<any[]>>(token, remoteFile.id);
         
-        if (remoteData) {
-          const { winner, data } = resolveConflict(localData, remoteData);
+        if (remoteData && remoteData.data) {
+          // Always merge activity logs - keeps all unique entries
+          const mergedLog = mergeActivityLogs(activityLog, remoteData.data);
           
-          if (winner === 'remote') {
-            // Merge activity logs - keep all unique entries, save via settings
-            const mergedLog = [...data, ...activityLog].reduce((acc, entry) => {
-              if (!acc.find((e: any) => e.id === entry.id)) {
-                acc.push(entry);
-              }
-              return acc;
-            }, [] as any[]);
-            // Save merged log directly to settings storage
-            await setSetting('userActivityLog', mergedLog);
-            console.log('Activity log merged from cloud');
-          } else {
-            const syncData: SyncableData<any[]> = {
-              data: activityLog,
-              metadata: {
-                lastSyncTime: new Date().toISOString(),
-                deviceId: await getDeviceId(),
-                version: 1,
-              },
-            };
-            await writeFile(token, SYNC_FILES.activity, syncData, remoteFile.id);
-            console.log('Activity log synced to cloud');
-          }
+          // Save merged log locally
+          await setSetting('userActivityLog', mergedLog);
+          console.log(`Activity merged: ${activityLog.length} local + ${remoteData.data.length} remote = ${mergedLog.length} total`);
+          
+          // Upload merged log to cloud
+          const syncData: SyncableData<any[]> = {
+            data: mergedLog,
+            metadata: {
+              lastSyncTime: new Date().toISOString(),
+              deviceId: await getDeviceId(),
+              version: 1,
+            },
+          };
+          await writeFile(token, SYNC_FILES.activity, syncData, remoteFile.id);
+          
+          window.dispatchEvent(new CustomEvent('activityRestored'));
         }
       } else {
         const syncData: SyncableData<any[]> = {
