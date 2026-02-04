@@ -178,6 +178,7 @@ class WidgetDataSyncManager {
         code: [],
         sketch: [],
         voice: [],
+        textformat: [],
       };
 
       // Process notes (limit per type for widget performance)

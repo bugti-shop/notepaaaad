@@ -21,6 +21,7 @@ const NOTE_TYPE_LABELS: Record<NoteType, string> = {
   code: 'Code',
   sketch: 'Sketch',
   voice: 'Voice',
+  textformat: 'Text',
 };
 
 export interface PersistentNotificationManager {

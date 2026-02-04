@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
-import { FileText, PenLine, StickyNote, Code, Brush, AlertCircle, Mic } from 'lucide-react';
+import { FileText, PenLine, StickyNote, Code, Brush, AlertCircle, Mic, Type } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NoteType } from '@/types/note';
 import { 
@@ -25,6 +25,7 @@ const noteTypeIcons: Record<NoteType, React.ReactNode> = {
   code: <Code className="h-5 w-5" />,
   sketch: <Brush className="h-5 w-5" />,
   voice: <Mic className="h-5 w-5" />,
+  textformat: <Type className="h-5 w-5" />,
 };
 
 const noteTypeColors: Record<NoteType, string> = {
@@ -34,6 +35,7 @@ const noteTypeColors: Record<NoteType, string> = {
   code: 'text-green-500',
   sketch: 'text-pink-500',
   voice: 'text-red-500',
+  textformat: 'text-indigo-500',
 };
 
 export const NoteTypeVisibilitySheet = ({ isOpen, onClose }: NoteTypeVisibilitySheetProps) => {

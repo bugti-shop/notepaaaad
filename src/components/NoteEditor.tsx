@@ -36,6 +36,7 @@ import { saveNoteVersion } from '@/utils/noteVersionHistory';
 import { exportNoteToMarkdown } from '@/utils/markdownExport';
 import { insertNoteLink, findBacklinks } from '@/utils/noteLinking';
 import { calculateNoteStats, formatReadingTime } from '@/utils/noteStats';
+import { copyWithFormatting } from '@/utils/richTextCopy';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
@@ -400,12 +401,12 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
       images: noteType === 'sticky' ? undefined : images,
       voiceRecordings,
       folderId: selectedFolderId || noteType,
-      fontFamily: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? fontFamily : undefined,
-      fontSize: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? fontSize : undefined,
-      fontWeight: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? fontWeight : undefined,
-      letterSpacing: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? letterSpacing : undefined,
-      isItalic: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? isItalic : undefined,
-      lineHeight: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') ? lineHeight : undefined,
+      fontFamily: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? fontFamily : undefined,
+      fontSize: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? fontSize : undefined,
+      fontWeight: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? fontWeight : undefined,
+      letterSpacing: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? letterSpacing : undefined,
+      isItalic: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? isItalic : undefined,
+      lineHeight: (noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') ? lineHeight : undefined,
       codeContent: noteType === 'code' ? codeContent : undefined,
       codeLanguage: noteType === 'code' ? codeLanguage : undefined,
       reminderEnabled,
@@ -787,11 +788,27 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
                 }} 
               />
             )}
+            
+            {/* Copy with Formatting Button - prominent for textformat notes */}
+            {noteType === 'textformat' && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  const editorElement = editorRef.current;
+                  copyWithFormatting(editorElement, fontFamily, fontSize, fontWeight, lineHeight, letterSpacing);
+                }}
+                className="gap-1.5 h-8 px-3"
+              >
+                <Copy className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('editor.copyAll', 'Copy All')}</span>
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-1">
             {/* Table Picker Popover - only available for rich text notes */}
-            {(noteType === 'sticky' || noteType === 'lined' || noteType === 'regular') && (
+            {(noteType === 'sticky' || noteType === 'lined' || noteType === 'regular' || noteType === 'textformat') && (
               <Popover open={isTablePickerOpen} onOpenChange={setIsTablePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className={cn("h-9 w-9", noteType === 'sticky' && "text-black hover:text-black")}>
@@ -1001,6 +1018,19 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
                   <Search className="h-4 w-4 mr-2" />
                   {t('editor.findReplace')}
                 </DropdownMenuItem>
+                {/* Copy with Formatting - special for textformat notes */}
+                {noteType === 'textformat' && (
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      const editorElement = editorRef.current;
+                      copyWithFormatting(editorElement, fontFamily, fontSize, fontWeight, lineHeight, letterSpacing);
+                    }}
+                    className="bg-primary/10"
+                  >
+                    <Copy className="h-4 w-4 mr-2 text-primary" />
+                    <span className="font-medium text-primary">{t('editor.copyWithFormatting', 'Copy with Formatting')}</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setIsMetaDescInputOpen(true)}>
                   <FileText className="h-4 w-4 mr-2" />
                   {metaDescription ? t('editor.editMetaDescription') : t('editor.addMetaDescription')}
@@ -1577,7 +1607,8 @@ export const NoteEditor = ({ note, isOpen, onClose, onSave, defaultType = 'regul
               showTable={noteType !== 'lined'}
               className={cn(
                 noteType === 'lined' && 'lined-note',
-                noteType === 'sticky' && 'sticky-note-editor'
+                noteType === 'sticky' && 'sticky-note-editor',
+                noteType === 'textformat' && 'textformat-note'
               )}
               toolbarPosition="bottom"
               title={title}

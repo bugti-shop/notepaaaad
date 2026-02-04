@@ -221,6 +221,8 @@ export const NoteCard = ({ note, onEdit, onDelete, onArchive, onTogglePin, onTog
         return { icon: Pen, label: 'Sketch' };
       case 'code':
         return { icon: FileCode, label: 'Code' };
+      case 'textformat':
+        return { icon: FileText, label: 'Text Format' };
       default:
         return { icon: FileText, label: 'Text' };
     }

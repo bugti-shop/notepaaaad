@@ -2,7 +2,7 @@ import { NoteType } from '@/types/note';
 import { getSetting, setSetting } from './settingsStorage';
 
 // All available note types
-export const ALL_NOTE_TYPES: NoteType[] = ['regular', 'lined', 'sticky', 'code', 'sketch', 'voice'];
+export const ALL_NOTE_TYPES: NoteType[] = ['regular', 'lined', 'sticky', 'code', 'sketch', 'voice', 'textformat'];
 
 // Default: all note types are visible
 const DEFAULT_VISIBLE_TYPES: NoteType[] = [...ALL_NOTE_TYPES];
@@ -66,6 +66,7 @@ export const getNoteTypeDisplayName = (type: NoteType): string => {
     code: 'Code Note',
     sketch: 'Sketch Note',
     voice: 'Voice Note',
+    textformat: 'Text Formatting',
   };
   return names[type] || type;
 };
@@ -79,6 +80,7 @@ export const getNoteTypeIcon = (type: NoteType): string => {
     code: 'Code',
     sketch: 'Brush',
     voice: 'Mic',
+    textformat: 'Type',
   };
   return icons[type] || 'FileText';
 };

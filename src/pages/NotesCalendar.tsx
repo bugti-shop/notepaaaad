@@ -107,6 +107,7 @@ const NotesCalendar = () => {
     sketch: { label: t('notesMenu.sketch'), icon: Pen },
     code: { label: t('notesMenu.code'), icon: FileCode },
     voice: { label: t('notes.noteTypes.voice', 'Voice Note'), icon: Mic },
+    textformat: { label: t('notes.noteTypes.textformat', 'Text Formatting'), icon: FileText },
   };
 
   const handleDeleteNote = async (noteId: string) => {

@@ -414,6 +414,31 @@ table th[contenteditable="true"]:hover {
 }
 }
 
+/* Text Formatting Note - special styling for rich copy */
+.textformat-note {
+  /* Ensure all text formatting is properly captured */
+  position: relative;
+}
+
+.textformat-note [contenteditable="true"] {
+  /* Make sure inline styles are preserved */
+  font-feature-settings: inherit;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visual indicator for text formatting mode */
+.textformat-note::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.5));
+  border-radius: 0 0 3px 3px;
+  opacity: 0.7;
+}
+
 @layer base {
   * {
     @apply border-border;
