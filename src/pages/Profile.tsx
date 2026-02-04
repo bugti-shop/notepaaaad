@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, LogOut, Cloud, CheckCircle, Loader2, AlertCircle, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { TodoBottomNavigation } from '@/components/TodoBottomNavigation';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useGoogleAuth } from '@/contexts/GoogleAuthContext';
-import { useSmartSync } from '@/components/SmartSyncProvider';
-import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
-import { ConflictResolutionSheet } from '@/components/ConflictResolutionSheet';
 import { useToast } from '@/hooks/use-toast';
 import { getSetting } from '@/utils/settingsStorage';
-import { loadConflictCopies, getSyncState } from '@/utils/syncQueue';
 import { motion } from 'framer-motion';
 import googleLogo from '@/assets/google-logo.png';
 
@@ -21,13 +16,7 @@ export default function Profile() {
   const { toast } = useToast();
   const location = useLocation();
   const { user, isLoading, isSignedIn, signIn, signOut } = useGoogleAuth();
-  const { isOnline, isSyncing: autoSyncing, lastSync: autoLastSync, hasError: autoHasError, triggerSync } = useSmartSync();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncError, setSyncError] = useState<string | null>(null);
   const [lastDashboard, setLastDashboard] = useState<'notes' | 'todo'>('notes');
-  const [conflictCount, setConflictCount] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [showConflicts, setShowConflicts] = useState(false);
 
   // Determine which dashboard the user came from
   useEffect(() => {
@@ -43,45 +32,8 @@ export default function Profile() {
     checkLastDashboard();
   }, [location.state]);
 
-  // Load sync state (conflicts and pending items)
-  useEffect(() => {
-    const loadSyncInfo = async () => {
-      try {
-        const conflicts = await loadConflictCopies();
-        const unresolvedConflicts = conflicts.filter(c => !c.resolved);
-        setConflictCount(unresolvedConflicts.length);
-        
-        const syncState = await getSyncState();
-        setPendingCount(syncState.pendingCount);
-      } catch (error) {
-        console.error('Error loading sync info:', error);
-      }
-    };
-    
-    loadSyncInfo();
-    
-    // Listen for sync events
-    const handleSyncComplete = () => loadSyncInfo();
-    const handleConflicts = (e: any) => {
-      if (e.detail?.count) {
-        setConflictCount(prev => prev + e.detail.count);
-      }
-    };
-    
-    window.addEventListener('syncComplete', handleSyncComplete);
-    window.addEventListener('syncConflicts', handleConflicts);
-    window.addEventListener('notesRestored', handleSyncComplete);
-    
-    return () => {
-      window.removeEventListener('syncComplete', handleSyncComplete);
-      window.removeEventListener('syncConflicts', handleConflicts);
-      window.removeEventListener('notesRestored', handleSyncComplete);
-    };
-  }, []);
-
   const handleSignIn = async () => {
     try {
-      setSyncError(null);
       await signIn();
       toast({
         title: t('profile.signInSuccess'),
@@ -89,7 +41,6 @@ export default function Profile() {
       });
     } catch (error: any) {
       console.error('Sign in failed:', error);
-      setSyncError(error.message);
       toast({
         title: t('profile.signInFailed'),
         description: error.message,
@@ -110,59 +61,6 @@ export default function Profile() {
     }
   };
 
-  const handleSyncNow = async () => {
-    if (!isSignedIn) return;
-    
-    setIsSyncing(true);
-    setSyncError(null);
-    
-    try {
-      const success = await triggerSync();
-      
-      if (success) {
-        toast({
-          title: t('profile.syncSuccess'),
-          description: t('profile.syncSuccessDesc'),
-        });
-      } else {
-        setSyncError('Sync failed');
-        toast({
-          title: t('profile.syncPartial'),
-          description: 'Some items could not be synced',
-          variant: 'destructive',
-        });
-      }
-    } catch (error: any) {
-      setSyncError(error.message);
-      toast({
-        title: t('profile.syncFailed'),
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const effectiveSyncError = syncError || (autoHasError ? t('profile.syncFailed') : null);
-  const effectiveIsSyncing = isSyncing || autoSyncing;
-  const effectiveLastSync = autoLastSync;
-
-  const formatLastSync = (date: Date | null): string => {
-    if (!date) return t('profile.neverSynced');
-    
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return t('profile.justNow');
-    if (minutes < 60) return t('profile.minutesAgo', { count: minutes });
-    if (hours < 24) return t('profile.hoursAgo', { count: hours });
-    return t('profile.daysAgo', { count: days });
-  };
-
   return (
     <div className="min-h-screen bg-muted/30 pb-20">
       {/* Header */}
@@ -172,17 +70,7 @@ export default function Profile() {
             <ArrowLeft className="h-5 w-5 text-foreground" />
           </Link>
           <h1 className="text-lg font-semibold text-foreground">{t('profile.title')}</h1>
-          {isSignedIn && (
-            <SyncStatusIndicator
-              isOnline={isOnline}
-              isSyncing={effectiveIsSyncing}
-              lastSync={effectiveLastSync}
-              hasError={!!effectiveSyncError}
-              showLabel={false}
-              className="px-2 py-1"
-            />
-          )}
-          {!isSignedIn && <div className="w-9" />}
+          <div className="w-9" />
         </div>
       </header>
 
@@ -215,7 +103,7 @@ export default function Profile() {
               {t('profile.signInSubtitle', 'Keep your notes and tasks synced across all your devices.')}
             </p>
 
-            {/* Google Sign In Button - Light gray like reference */}
+            {/* Google Sign In Button */}
             <button
               onClick={handleSignIn}
               disabled={isLoading}
@@ -233,125 +121,29 @@ export default function Profile() {
           </motion.div>
         )}
 
-        {/* Signed In - Clean minimal design matching reference */}
+        {/* Signed In - Simple profile with just avatar and sign out */}
         {isSignedIn && user && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-sm space-y-6"
+            className="w-full max-w-sm space-y-8"
           >
             {/* Profile Info - Centered and clean */}
-            <div className="flex flex-col items-center py-4">
-              <div className="relative mb-4">
-                <div className="absolute -inset-4 bg-primary/5 rounded-full blur-xl" />
-                <Avatar className="relative w-24 h-24 ring-4 ring-background shadow-lg">
+            <div className="flex flex-col items-center py-8">
+              <div className="relative mb-5">
+                <div className="absolute -inset-6 bg-primary/5 rounded-full blur-xl" />
+                <Avatar className="relative w-28 h-28 ring-4 ring-background shadow-xl">
                   <AvatarImage src={user.imageUrl} alt={user.name} />
-                  <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                  <AvatarFallback className="text-3xl bg-primary/10 text-primary">
                     {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              <h2 className="text-xl font-semibold text-foreground">{user.name}</h2>
-              <p className="text-muted-foreground text-sm">{user.email}</p>
+              <h2 className="text-2xl font-semibold text-foreground">{user.name}</h2>
+              <p className="text-muted-foreground text-sm mt-1">{user.email}</p>
             </div>
 
-            {/* Sync Card - Clean design */}
-            <div className="bg-secondary/30 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Cloud className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">{t('profile.cloudSync')}</h3>
-                  <p className="text-xs text-muted-foreground">{t('profile.cloudSyncEnabled')}</p>
-                </div>
-              </div>
-
-              {/* Sync Status */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-background/50">
-                <div className="flex items-center gap-2">
-                  {effectiveSyncError ? (
-                    <AlertCircle className="h-4 w-4 text-destructive" />
-                  ) : effectiveLastSync ? (
-                    <CheckCircle className="h-4 w-4 text-primary" />
-                  ) : (
-                    <Cloud className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <span className="text-sm text-muted-foreground">
-                    {t('profile.lastSync')}: {formatLastSync(effectiveLastSync)}
-                  </span>
-                </div>
-                {isOnline ? (
-                  <Wifi className="h-4 w-4 text-primary" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-
-              {effectiveSyncError && (
-                <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">
-                  {effectiveSyncError}
-                </div>
-              )}
-
-              {/* Conflict Warning */}
-              {conflictCount > 0 && (
-                <button
-                  onClick={() => setShowConflicts(true)}
-                  className="w-full p-3 rounded-xl bg-warning/10 flex items-center justify-between hover:bg-warning/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-warning" />
-                    <span className="text-sm text-warning font-medium">
-                      {conflictCount} sync conflict{conflictCount > 1 ? 's' : ''} detected
-                    </span>
-                  </div>
-                  <span className="text-xs text-warning">Resolve →</span>
-                </button>
-              )}
-
-              {/* Pending Items Indicator */}
-              {pendingCount > 0 && !effectiveIsSyncing && (
-                <div className="p-3 rounded-xl bg-primary/5 flex items-center gap-2">
-                  <Cloud className="h-4 w-4 text-primary" />
-                  <span className="text-sm text-muted-foreground">
-                    {pendingCount} item{pendingCount > 1 ? 's' : ''} waiting to sync
-                  </span>
-                </div>
-              )}
-
-              {/* Sync Button */}
-              <Button
-                onClick={handleSyncNow}
-                disabled={effectiveIsSyncing || !isOnline}
-                className="w-full flex items-center justify-center gap-2 h-12 rounded-xl"
-              >
-                <RefreshCw className={`h-4 w-4 ${effectiveIsSyncing ? 'animate-spin' : ''}`} />
-                <span>{effectiveIsSyncing ? t('profile.syncing') : t('profile.syncNow')}</span>
-              </Button>
-
-              {/* What syncs */}
-              <div className="pt-2 grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span>{t('profile.syncNotes')}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span>{t('profile.syncTasks')}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span>{t('profile.syncFolders')}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span>{t('profile.syncSettings', 'Settings')}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Sign Out Button - Light gray matching reference */}
+            {/* Sign Out Button */}
             <button
               onClick={handleSignOut}
               disabled={isLoading}
@@ -365,12 +157,6 @@ export default function Profile() {
       </div>
 
       {lastDashboard === 'todo' ? <TodoBottomNavigation /> : <BottomNavigation />}
-      
-      {/* Conflict Resolution Sheet */}
-      <ConflictResolutionSheet
-        open={showConflicts}
-        onOpenChange={setShowConflicts}
-      />
     </div>
   );
 }
