@@ -374,7 +374,8 @@
       "mindMap": "Mind Map",
       "expense": "Expense Tracker",
       "sketch": "Sketch Note",
-      "voice": "Voice Note"
+      "voice": "Voice Note",
+      "textformat": "Text Formatting"
     },
     "daysRemaining": "{{days}} days remaining",
     "upcomingReminders": "Upcoming Reminders",
@@ -771,7 +772,11 @@
     "imageAligned": "Image aligned {{align}}",
     "imageDeleted": "Image deleted",
     "setPinLock": "Set PIN Lock",
-    "managePinLock": "Manage PIN Lock"
+    "managePinLock": "Manage PIN Lock",
+    "copyWithFormatting": "Copy with Formatting",
+    "copyAll": "Copy All",
+    "copiedWithFormatting": "Copied with formatting!",
+    "copyFormattingDesc": "Paste anywhere to keep your styles"
   },
   "notePin": {
     "setPin": "Set PIN",
