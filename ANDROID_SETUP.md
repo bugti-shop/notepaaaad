@@ -23,6 +23,7 @@ This guide provides complete Android native code including:
     <!-- Internet & Network -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     
     <!-- Push & Local Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -39,9 +40,10 @@ This guide provides complete Android native code including:
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     
-    <!-- Microphone (for voice notes) -->
+    <!-- Microphone (for voice notes/recording) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     
     <!-- Camera (for scanning/photos) -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -58,6 +60,10 @@ This guide provides complete Android native code including:
     <!-- Biometric (for app lock) -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    
+    <!-- ==================== ADVERTISING ID ==================== -->
+    <!-- Google Advertising ID for analytics & ads -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <!-- ==================== APPLICATION ==================== -->
     
@@ -421,15 +427,31 @@ npx cap run android
 
 | Permission | Purpose |
 |------------|---------|
-| `INTERNET` | Network access |
+| `INTERNET` | Network access for syncing & API calls |
+| `ACCESS_NETWORK_STATE` | Check network connectivity |
+| `ACCESS_WIFI_STATE` | Check WiFi connectivity |
 | `POST_NOTIFICATIONS` | Show notifications (Android 13+) |
+| `VIBRATE` | Haptic feedback & notification vibration |
+| `RECEIVE_BOOT_COMPLETED` | Reschedule notifications after device restart |
 | `SCHEDULE_EXACT_ALARM` | Precise notification timing |
-| `ACCESS_FINE_LOCATION` | GPS for location reminders |
-| `ACCESS_BACKGROUND_LOCATION` | Background location tracking |
-| `RECORD_AUDIO` | Voice notes recording |
-| `CAMERA` | Photo capture |
-| `USE_BIOMETRIC` | App lock with fingerprint |
-| `VIBRATE` | Haptic feedback |
+| `USE_EXACT_ALARM` | Exact alarm scheduling (Android 12+) |
+| `WAKE_LOCK` | Keep device awake for background tasks |
+| `ACCESS_FINE_LOCATION` | GPS for location-based reminders |
+| `ACCESS_COARSE_LOCATION` | Approximate location |
+| `ACCESS_BACKGROUND_LOCATION` | Location tracking when app is in background |
+| `FOREGROUND_SERVICE` | Run foreground services |
+| `FOREGROUND_SERVICE_LOCATION` | Location service in foreground |
+| `RECORD_AUDIO` | Voice notes & voice recording |
+| `MODIFY_AUDIO_SETTINGS` | Audio settings for recording |
+| `CAMERA` | Photo capture & scanning |
+| `READ_EXTERNAL_STORAGE` | Read files (Android 12 and below) |
+| `WRITE_EXTERNAL_STORAGE` | Write files (Android 9 and below) |
+| `READ_MEDIA_IMAGES` | Access images (Android 13+) |
+| `READ_MEDIA_AUDIO` | Access audio files (Android 13+) |
+| `READ_MEDIA_VIDEO` | Access video files (Android 13+) |
+| `USE_BIOMETRIC` | Fingerprint/face unlock for app lock |
+| `USE_FINGERPRINT` | Fingerprint authentication (legacy) |
+| `AD_ID` | Google Advertising ID for analytics & ads |
 
 ---
 
