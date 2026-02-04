@@ -1,4 +1,5 @@
-import { LocalNotifications, LocalNotificationSchema, ActionPerformed } from '@capacitor/local-notifications';
+import { LocalNotifications, LocalNotificationSchema, ActionPerformed, Schedule } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 import { TodoItem, Note, Priority } from '@/types/note';
 import { RepeatSettings, RepeatFrequency } from '@/components/TaskDateTimePage';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, addYears } from 'date-fns';
@@ -6,6 +7,16 @@ import { triggerTripleHeavyHaptic } from './haptics';
 import { getSetting, setSetting } from './settingsStorage';
 
 const DEFAULT_NOTIFICATION_ICON = 'npd_notification_icon';
+
+// Vibration pattern for notifications (in milliseconds)
+// Pattern: vibrate 300ms, pause 200ms, vibrate 500ms, pause 200ms, vibrate 300ms
+const NOTIFICATION_VIBRATION_PATTERN = [300, 200, 500, 200, 300];
+
+// Helper to create exact alarm schedule that works when app is killed
+const createExactSchedule = (at: Date): Schedule => ({
+  at,
+  allowWhileIdle: true, // CRITICAL: Allows notification when device is in Doze mode
+});
 
 export interface NotificationData {
   taskId?: string;
@@ -48,6 +59,9 @@ export class NotificationManager {
       // Request permissions
       await this.requestPermissions();
 
+      // Create notification channel for Android (required for Android 8+)
+      await this.createNotificationChannels();
+
       // Register action types for snooze
       await this.registerActionTypes();
 
@@ -58,6 +72,55 @@ export class NotificationManager {
       console.log('NotificationManager initialized successfully');
     } catch (error) {
       console.error('Failed to initialize NotificationManager:', error);
+    }
+  }
+
+  private async createNotificationChannels(): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      // Create high-priority channel for task reminders
+      await LocalNotifications.createChannel({
+        id: 'task_reminders',
+        name: 'Task Reminders',
+        description: 'Reminders for your tasks and notes',
+        importance: 5, // Max importance for heads-up notifications
+        visibility: 1, // Public
+        vibration: true,
+        sound: 'default',
+        lights: true,
+        lightColor: '#3B82F6',
+      });
+
+      // Create channel for note reminders
+      await LocalNotifications.createChannel({
+        id: 'note_reminders',
+        name: 'Note Reminders',
+        description: 'Reminders for your notes',
+        importance: 5,
+        visibility: 1,
+        vibration: true,
+        sound: 'default',
+        lights: true,
+        lightColor: '#10B981',
+      });
+
+      // Create channel for budget alerts
+      await LocalNotifications.createChannel({
+        id: 'budget_alerts',
+        name: 'Budget Alerts',
+        description: 'Alerts for budget limits',
+        importance: 4,
+        visibility: 1,
+        vibration: true,
+        sound: 'default',
+        lights: true,
+        lightColor: '#F59E0B',
+      });
+
+      console.log('Notification channels created successfully');
+    } catch (error) {
+      console.error('Error creating notification channels:', error);
     }
   }
 
@@ -253,12 +316,13 @@ export class NotificationManager {
             id: snoozeNotificationId,
             title: `⏰ Snoozed: ${notification.title || 'Reminder'}`,
             body: notification.body || '',
-            schedule: { at: snoozeTime },
-            sound: undefined,
+            schedule: createExactSchedule(snoozeTime),
+            sound: 'default',
             attachments: undefined,
             actionTypeId: TASK_REMINDER_ACTION_TYPE_ID,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'task_reminders',
             extra: {
               ...extra,
               originalTitle: notification.title,
@@ -453,14 +517,15 @@ export class NotificationManager {
             
             notifications.push({
               id: notificationId,
-              title: `Task Reminder (${frequencyLabel})`,
+              title: `🔔 Task Reminder (${frequencyLabel})`,
               body: task.text,
-              schedule: { at: occurrenceDate },
-              sound: undefined,
+              schedule: createExactSchedule(occurrenceDate),
+              sound: 'default',
               attachments: undefined,
               actionTypeId: TASK_REMINDER_ACTION_TYPE_ID,
               smallIcon: DEFAULT_NOTIFICATION_ICON,
               largeIcon: DEFAULT_NOTIFICATION_ICON,
+              channelId: 'task_reminders',
               extra: {
                 taskId: task.id,
                 type: 'task',
@@ -477,14 +542,15 @@ export class NotificationManager {
           notificationIds.push(baseNotificationId);
           notifications.push({
             id: baseNotificationId,
-            title: 'Task Reminder',
+            title: '🔔 Task Reminder',
             body: task.text,
-            schedule: { at: reminderTime },
-            sound: undefined,
+            schedule: createExactSchedule(reminderTime),
+            sound: 'default',
             attachments: undefined,
             actionTypeId: TASK_REMINDER_ACTION_TYPE_ID,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'task_reminders',
             extra: {
               taskId: task.id,
               type: 'task',
@@ -546,15 +612,16 @@ export class NotificationManager {
           notifications.push({
             id: notificationId,
             title: recurring
-              ? `Note Reminder (${note.reminderRecurring?.charAt(0).toUpperCase()}${note.reminderRecurring?.slice(1)})`
-              : 'Note Reminder',
+              ? `📝 Note Reminder (${note.reminderRecurring?.charAt(0).toUpperCase()}${note.reminderRecurring?.slice(1)})`
+              : '📝 Note Reminder',
             body: note.title || 'You have a note reminder',
-            schedule: { at: occurrenceDate },
-            sound: undefined,
+            schedule: createExactSchedule(occurrenceDate),
+            sound: 'default',
             attachments: undefined,
             actionTypeId: TASK_REMINDER_ACTION_TYPE_ID,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'note_reminders',
             extra: {
               noteId: note.id,
               type: 'note',
@@ -677,12 +744,13 @@ export class NotificationManager {
             id: notificationId,
             title: `${timeLabel} Reminder 📝`,
             body: `Pending task: ${task.text}`,
-            schedule: { at: reminderTime },
-            sound: undefined,
+            schedule: createExactSchedule(reminderTime),
+            sound: 'default',
             attachments: undefined,
-            actionTypeId: SNOOZE_ACTION_TYPE_ID,
+            actionTypeId: TASK_REMINDER_ACTION_TYPE_ID,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'task_reminders',
             extra: {
               taskId: task.id,
               type: 'task',
@@ -837,11 +905,12 @@ export class NotificationManager {
             id: notificationId,
             title,
             body,
-            schedule: { at: new Date(Date.now() + 1000) }, // Show in 1 second
-            sound: undefined,
+            schedule: createExactSchedule(new Date(Date.now() + 1000)), // Show in 1 second
+            sound: 'default',
             attachments: undefined,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'budget_alerts',
             extra: {
               type: 'budget',
               category,
@@ -952,11 +1021,12 @@ export class NotificationManager {
             id: notificationId,
             title,
             body,
-            schedule: { at: new Date(Date.now() + 1000) }, // Show in 1 second
-            sound: undefined,
+            schedule: createExactSchedule(new Date(Date.now() + 1000)), // Show in 1 second
+            sound: 'default',
             attachments: undefined,
             smallIcon: DEFAULT_NOTIFICATION_ICON,
             largeIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'budget_alerts',
             extra: {
               type: 'bill',
               billId,
@@ -1046,8 +1116,10 @@ export class NotificationManager {
           id: Math.floor(Math.random() * 100000) + 900000,
           title: smartNotification.title,
           body: smartNotification.body,
-          schedule: { at: scheduleTime },
+          schedule: createExactSchedule(scheduleTime),
+          sound: 'default',
           smallIcon: DEFAULT_NOTIFICATION_ICON,
+          channelId: 'task_reminders',
           extra: {
             type: 'personalized',
             category: smartNotification.category,
@@ -1090,16 +1162,20 @@ export class NotificationManager {
             id: 999001,
             title: morningMsg.title,
             body: morningMsg.body,
-            schedule: { at: morningTime, every: 'day' },
+            schedule: { at: morningTime, every: 'day', allowWhileIdle: true },
+            sound: 'default',
             smallIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'task_reminders',
             extra: { type: 'motivation', category: 'morning' },
           },
           {
             id: 999002,
             title: eveningMsg.title,
             body: eveningMsg.body,
-            schedule: { at: eveningTime, every: 'day' },
+            schedule: { at: eveningTime, every: 'day', allowWhileIdle: true },
+            sound: 'default',
             smallIcon: DEFAULT_NOTIFICATION_ICON,
+            channelId: 'task_reminders',
             extra: { type: 'motivation', category: 'evening' },
           },
         ],
