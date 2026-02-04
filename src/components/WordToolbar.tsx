@@ -125,17 +125,51 @@ export const setCachedToolbarOrder = (order: ToolbarItemId[]) => {
   cachedToolbarOrder = order;
 };
 
-// Compact color palette
+// Extended color palette - 60 unique text colors
 const TEXT_COLORS = [
-  '#000000', '#374151', '#6B7280', '#9CA3AF',
-  '#DC2626', '#EA580C', '#CA8A04', '#16A34A',
-  '#0EA5E9', '#3B82F6', '#8B5CF6', '#EC4899',
+  // Blacks & Grays (6)
+  '#000000', '#1F2937', '#374151', '#4B5563', '#6B7280', '#9CA3AF',
+  // Whites & Light Grays (4)
+  '#D1D5DB', '#E5E7EB', '#F3F4F6', '#FFFFFF',
+  // Reds (6)
+  '#7F1D1D', '#991B1B', '#B91C1C', '#DC2626', '#EF4444', '#F87171',
+  // Oranges (6)
+  '#7C2D12', '#9A3412', '#C2410C', '#EA580C', '#F97316', '#FB923C',
+  // Yellows (5)
+  '#713F12', '#A16207', '#CA8A04', '#EAB308', '#FACC15',
+  // Greens (7)
+  '#14532D', '#166534', '#15803D', '#16A34A', '#22C55E', '#4ADE80', '#86EFAC',
+  // Teals (5)
+  '#134E4A', '#115E59', '#0D9488', '#14B8A6', '#2DD4BF',
+  // Cyans (5)
+  '#164E63', '#0E7490', '#0891B2', '#06B6D4', '#22D3EE',
+  // Blues (6)
+  '#1E3A8A', '#1D4ED8', '#2563EB', '#3B82F6', '#60A5FA', '#93C5FD',
+  // Indigos (5)
+  '#312E81', '#4338CA', '#4F46E5', '#6366F1', '#818CF8',
+  // Purples (5)
+  '#581C87', '#7E22CE', '#9333EA', '#A855F7', '#C084FC',
+  // Pinks (5)
+  '#831843', '#BE185D', '#DB2777', '#EC4899', '#F472B6',
 ];
 
+// Extended highlight colors - 36 unique colors
 const HIGHLIGHT_COLORS = [
   'transparent',
-  '#FEF08A', '#FED7AA', '#FECACA', '#FBCFE8',
-  '#E9D5FF', '#BFDBFE', '#BBF7D0', '#CFFAFE',
+  // Yellows (5)
+  '#FEF9C3', '#FEF08A', '#FDE047', '#FACC15', '#EAB308',
+  // Oranges (5)
+  '#FFEDD5', '#FED7AA', '#FDBA74', '#FB923C', '#F97316',
+  // Reds (5)
+  '#FEE2E2', '#FECACA', '#FCA5A5', '#F87171', '#EF4444',
+  // Pinks (5)
+  '#FCE7F3', '#FBCFE8', '#F9A8D4', '#F472B6', '#EC4899',
+  // Purples (5)
+  '#F3E8FF', '#E9D5FF', '#D8B4FE', '#C084FC', '#A855F7',
+  // Blues (5)
+  '#DBEAFE', '#BFDBFE', '#93C5FD', '#60A5FA', '#3B82F6',
+  // Greens (5)
+  '#DCFCE7', '#BBF7D0', '#86EFAC', '#4ADE80', '#22C55E',
 ];
 
 const FONT_FAMILIES = [
@@ -365,8 +399,8 @@ export const WordToolbar = ({
               <div className="h-1.5 w-5 rounded-full" style={{ backgroundColor: selectedTextColor }} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-2" align="start">
-            <div className="grid grid-cols-6 gap-1">
+          <PopoverContent className="w-auto p-2 max-h-72 overflow-y-auto" align="start">
+            <div className="grid grid-cols-10 gap-1">
               {TEXT_COLORS.map((color) => (
                 <button
                   key={color}
@@ -374,9 +408,11 @@ export const WordToolbar = ({
                   onClick={() => { onTextColor(color); setSelectedTextColor(color); setTextColorOpen(false); }}
                   className={cn(
                     "h-6 w-6 rounded border border-border/50 hover:scale-110 transition-transform",
-                    selectedTextColor === color && "ring-2 ring-primary ring-offset-1"
+                    selectedTextColor === color && "ring-2 ring-primary ring-offset-1",
+                    color === '#FFFFFF' && "border-border"
                   )}
                   style={{ backgroundColor: color }}
+                  title={color}
                 />
               ))}
             </div>
@@ -394,8 +430,8 @@ export const WordToolbar = ({
               <Highlighter className="h-5 w-5" strokeWidth={2} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-2" align="start">
-            <div className="grid grid-cols-5 gap-1">
+          <PopoverContent className="w-auto p-2 max-h-64 overflow-y-auto" align="start">
+            <div className="grid grid-cols-6 gap-1">
               {HIGHLIGHT_COLORS.map((color) => (
                 <button
                   key={color}
@@ -407,6 +443,7 @@ export const WordToolbar = ({
                     selectedHighlight === color && "ring-2 ring-primary ring-offset-1"
                   )}
                   style={{ backgroundColor: color === 'transparent' ? undefined : color }}
+                  title={color === 'transparent' ? 'None' : color}
                 />
               ))}
             </div>
