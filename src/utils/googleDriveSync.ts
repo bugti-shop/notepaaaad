@@ -974,7 +974,7 @@ class GoogleDriveSyncManager {
   }
 
   // Start background sync polling (for real-time cross-device sync)
-  startBackgroundSync(intervalMs: number = 30000) {
+  startBackgroundSync(intervalMs: number = 1000) {
     if (this.backgroundSyncInterval) {
       clearInterval(this.backgroundSyncInterval);
     }
@@ -1045,8 +1045,8 @@ if (typeof window !== 'undefined') {
       googleDriveSyncManager.setAccessToken(user.authentication.accessToken);
       // Trigger initial sync on sign in - immediately
       googleDriveSyncManager.syncAll();
-      // Start background sync for real-time cross-device updates (every 30 seconds)
-      googleDriveSyncManager.startBackgroundSync(30000);
+      // Start background sync for real-time cross-device updates (every 1 second for instant restore)
+      googleDriveSyncManager.startBackgroundSync(1000);
     } else {
       googleDriveSyncManager.setAccessToken(null);
       googleDriveSyncManager.stopBackgroundSync();
