@@ -342,6 +342,8 @@ class GoogleDriveSyncManager {
   private syncQueue: string[] = [];
   private debounceTimer: NodeJS.Timeout | null = null;
   private refreshTokenFn: (() => Promise<string | null>) | null = null;
+  private backgroundSyncInterval: NodeJS.Timeout | null = null;
+  private isBackgroundSyncEnabled = false;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
@@ -970,6 +972,38 @@ class GoogleDriveSyncManager {
       return false;
     }
   }
+
+  // Start background sync polling (for real-time cross-device sync)
+  startBackgroundSync(intervalMs: number = 30000) {
+    if (this.backgroundSyncInterval) {
+      clearInterval(this.backgroundSyncInterval);
+    }
+    
+    this.isBackgroundSyncEnabled = true;
+    console.log(`[Sync] Background sync started (every ${intervalMs / 1000}s)`);
+    
+    this.backgroundSyncInterval = setInterval(async () => {
+      if (this.accessToken && !this.syncInProgress) {
+        console.log('[Sync] Background sync triggered');
+        await this.syncAll();
+      }
+    }, intervalMs);
+  }
+
+  // Stop background sync
+  stopBackgroundSync() {
+    if (this.backgroundSyncInterval) {
+      clearInterval(this.backgroundSyncInterval);
+      this.backgroundSyncInterval = null;
+    }
+    this.isBackgroundSyncEnabled = false;
+    console.log('[Sync] Background sync stopped');
+  }
+
+  // Check if background sync is running
+  isBackgroundSyncRunning(): boolean {
+    return this.isBackgroundSyncEnabled;
+  }
 }
 
 export const googleDriveSyncManager = new GoogleDriveSyncManager();
@@ -1011,8 +1045,31 @@ if (typeof window !== 'undefined') {
       googleDriveSyncManager.setAccessToken(user.authentication.accessToken);
       // Trigger initial sync on sign in - immediately
       googleDriveSyncManager.syncAll();
+      // Start background sync for real-time cross-device updates (every 30 seconds)
+      googleDriveSyncManager.startBackgroundSync(30000);
     } else {
       googleDriveSyncManager.setAccessToken(null);
+      googleDriveSyncManager.stopBackgroundSync();
     }
+  });
+
+  // Sync when app comes to foreground (visibility change)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      console.log('[Sync] App came to foreground, triggering sync');
+      googleDriveSyncManager.syncAll();
+    }
+  });
+
+  // Sync when app resumes (for native apps)
+  window.addEventListener('resume', () => {
+    console.log('[Sync] App resumed, triggering sync');
+    googleDriveSyncManager.syncAll();
+  });
+
+  // Sync when online status changes
+  window.addEventListener('online', () => {
+    console.log('[Sync] Network online, triggering sync');
+    googleDriveSyncManager.syncAll();
   });
 }

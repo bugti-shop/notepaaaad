@@ -27,8 +27,26 @@ The app uses Google Drive's `appDataFolder` for seamless cross-platform sync. Da
 | **Instant Sync** | Changes sync within 500ms when online |
 | **Offline Support** | Changes queue and sync when back online |
 | **Auto-Restore** | Data restores automatically on new device sign-in |
-| **Conflict Resolution** | Newer data wins (timestamp-based) |
-| **Background Sync** | 1-minute fallback sync interval |
+| **Smart Merge** | Never overwrites - combines local + cloud data |
+| **Background Sync** | Polls every 30 seconds for cross-device updates |
+| **Foreground Sync** | Syncs when app comes to foreground |
+| **Network Aware** | Syncs automatically when coming back online |
+
+## Merge Behavior (No Data Loss!)
+
+The sync uses a **smart merge strategy** that ensures no data is ever lost:
+
+- ✅ **Notes**: Merged by ID - if same note exists, newer version wins
+- ✅ **Tasks**: Merged by ID - local takes priority for conflicts
+- ✅ **Folders**: Merged by ID - keeps all unique folders
+- ✅ **Sections**: Merged by ID - keeps all unique sections
+- ✅ **Activity Log**: Always merged - keeps all unique activities
+- ✅ **Settings**: Merged - local takes priority
+
+**Example Flow:**
+1. Device A has notes: [A, B, C]
+2. Device B has notes: [B, D, E]
+3. After sync, BOTH devices have: [A, B, C, D, E]
 
 ## What Gets Synced
 

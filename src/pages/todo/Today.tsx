@@ -216,6 +216,40 @@ const Today = () => {
       setSettingsLoaded(true);
     };
     loadSettings();
+
+    // Listen for tasks restored from cloud sync
+    const handleTasksRestored = async () => {
+      console.log('[Today] Tasks restored from cloud, refreshing...');
+      const loadedItems = await loadTodoItems();
+      setItems(loadedItems);
+      toast.success('Tasks synced from cloud!', { icon: '☁️' });
+    };
+
+    // Listen for sections restored from cloud sync
+    const handleSectionsRestored = async () => {
+      console.log('[Today] Sections restored from cloud, refreshing...');
+      const savedSections = await getSetting<TaskSection[]>('todoSections', []);
+      setSections(savedSections.length > 0 ? savedSections : defaultSections);
+    };
+
+    // Listen for folders restored from cloud sync
+    const handleFoldersRestored = async () => {
+      console.log('[Today] Folders restored from cloud, refreshing...');
+      const savedFolders = await getSetting<Folder[] | null>('todoFolders', null);
+      if (savedFolders) {
+        setFolders(savedFolders.map((f: Folder) => ({ ...f, createdAt: new Date(f.createdAt) })));
+      }
+    };
+
+    window.addEventListener('tasksRestored', handleTasksRestored);
+    window.addEventListener('sectionsRestored', handleSectionsRestored);
+    window.addEventListener('foldersRestored', handleFoldersRestored);
+
+    return () => {
+      window.removeEventListener('tasksRestored', handleTasksRestored);
+      window.removeEventListener('sectionsRestored', handleSectionsRestored);
+      window.removeEventListener('foldersRestored', handleFoldersRestored);
+    };
   }, []);
 
   useEffect(() => { 
