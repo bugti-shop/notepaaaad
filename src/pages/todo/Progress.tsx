@@ -9,9 +9,6 @@ import { loadTodoItems } from '@/utils/todoItemsStorage';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import Confetti from 'react-confetti';
 import { XpLevelProgress } from '@/components/XpLevelProgress';
-import { AchievementBadges } from '@/components/AchievementBadges';
-import { DailyChallenges } from '@/components/DailyChallenges';
-import { WeeklyGoals } from '@/components/WeeklyGoals';
 
 const Progress = () => {
   const { t } = useTranslation();
@@ -304,11 +301,6 @@ const Progress = () => {
           )}
         </motion.div>
         
-        {/* Weekly Goals */}
-        <WeeklyGoals />
-        
-        {/* Daily Challenges */}
-        <DailyChallenges />
         
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-4">
@@ -365,11 +357,6 @@ const Progress = () => {
           </motion.div>
         </div>
         
-        {/* Achievement Badges */}
-        <AchievementBadges compact />
-        
-        {/* Full Achievements */}
-        <AchievementBadges />
         
         {/* Milestones */}
         <motion.div 
