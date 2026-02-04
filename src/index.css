@@ -314,6 +314,32 @@ All colors MUST be HSL.
   margin: 0 !important;
 }
 
+/* Editable table cells */
+.resizable-table-container td[contenteditable="true"],
+.resizable-table-container th[contenteditable="true"],
+table td[contenteditable="true"],
+table th[contenteditable="true"] {
+  cursor: text;
+  outline: none;
+  transition: background-color 0.15s ease;
+}
+
+.resizable-table-container td[contenteditable="true"]:focus,
+.resizable-table-container th[contenteditable="true"]:focus,
+table td[contenteditable="true"]:focus,
+table th[contenteditable="true"]:focus {
+  background-color: hsl(var(--primary) / 0.1) !important;
+  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline-offset: -2px;
+}
+
+.resizable-table-container td[contenteditable="true"]:hover,
+.resizable-table-container th[contenteditable="true"]:hover,
+table td[contenteditable="true"]:hover,
+table th[contenteditable="true"]:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
 /* Audio player container */
 .lined-note .audio-player-container {
   padding: 0.75rem;

@@ -150,17 +150,23 @@ export const TableEditor = ({ onInsertTable }: TableEditorProps) => {
   );
 };
 
-// Helper to generate table HTML with styles
+// Helper to generate table HTML with styles and editable cells
 export const generateTableHTML = (rows: number, cols: number, style: TableStyle = 'default'): string => {
   const styles = getTableStyles(style);
   
-  const headerRow = `<tr>${Array(cols).fill(`<th style="${styles.headerCell}">Header</th>`).join('')}</tr>`;
+  // Add contenteditable to cells for inline editing
+  const headerRow = `<tr>${Array(cols).fill(null).map(() => 
+    `<th style="${styles.headerCell}" contenteditable="true">Header</th>`
+  ).join('')}</tr>`;
+  
   const bodyRows = Array(rows - 1)
     .fill(null)
     .map((_, rowIdx) => {
       const isEven = rowIdx % 2 === 0;
       const cellStyle = style === 'striped' && isEven ? styles.stripedCell : styles.bodyCell;
-      return `<tr>${Array(cols).fill(`<td style="${cellStyle}">Cell</td>`).join('')}</tr>`;
+      return `<tr>${Array(cols).fill(null).map(() => 
+        `<td style="${cellStyle}" contenteditable="true">Cell</td>`
+      ).join('')}</tr>`;
     })
     .join('');
   
@@ -219,6 +225,7 @@ export const addTableRow = (table: HTMLTableElement, position: 'above' | 'below'
     const cell = newRow.insertCell(i);
     cell.style.cssText = styles.bodyCell;
     cell.textContent = 'Cell';
+    cell.contentEditable = 'true';
   }
 };
 
@@ -228,6 +235,7 @@ export const addTableColumn = (table: HTMLTableElement, position: 'left' | 'righ
   
   Array.from(table.rows).forEach((row, rowIdx) => {
     const cell = row.insertCell(position === 'left' ? colIndex : colIndex + 1);
+    cell.contentEditable = 'true';
     
     if (rowIdx === 0) {
       cell.style.cssText = styles.headerCell;
