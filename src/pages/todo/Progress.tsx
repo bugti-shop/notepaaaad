@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { loadTodoItems } from '@/utils/todoItemsStorage';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import Confetti from 'react-confetti';
-import { XpLevelProgress } from '@/components/XpLevelProgress';
+
 
 const Progress = () => {
   const { t } = useTranslation();
@@ -159,8 +159,6 @@ const Progress = () => {
 
       <div className="container mx-auto px-4 py-6 space-y-6">
         
-        {/* XP & Level Progress */}
-        <XpLevelProgress compact />
         
         {/* Streak Card */}
         <motion.div 
