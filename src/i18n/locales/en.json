@@ -1128,6 +1128,16 @@
       "signedInAs": "Signed in as",
       "continueWithGoogle": "Continue with Google",
       "skip": "Skip for now"
+    },
+    "signIn": {
+      "title": "Sign in to Continue",
+      "description": "Sign in with Google to sync your data across devices and unlock all features.",
+      "googleButton": "Continue with Google",
+      "signingIn": "Signing in...",
+      "checkingSubscription": "Checking subscription...",
+      "cancelled": "Sign in was cancelled. Please try again.",
+      "error": "Sign in failed. Please try again.",
+      "terms": "By continuing, you agree to our Terms of Service and Privacy Policy."
     }
   },
   "toast": {
